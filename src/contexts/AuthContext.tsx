@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { User, Auth } from 'firebase/auth'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
-import { auth } from '../firebase'
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from '../firebase'
 
 interface AuthContextType {
   currentUser: User | null
@@ -26,8 +27,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const createOrUpdateUserProfile = async (user: User) => {
+    const userDocRef = doc(db, 'users', user.uid)
+    const userDoc = await getDoc(userDocRef)
+
+    if (!userDoc.exists()) {
+      // Create new user profile
+      await setDoc(userDocRef, {
+        email: user.email,
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        totalTests: 0,
+        totalTime: 0,
+        bestWPM: 0,
+        averageWPM: 0,
+        accuracy: 0,
+        streak: 0
+      })
+    } else {
+      // Update last login
+      await updateDoc(userDocRef, {
+        lastLoginAt: serverTimestamp()
+      })
+    }
+  }
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
+      if (user) {
+        await createOrUpdateUserProfile(user)
+      }
       setCurrentUser(user)
       setLoading(false)
     })
@@ -39,7 +70,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const signup = async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email, password)
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    await createOrUpdateUserProfile(userCredential.user)
   }
 
   const logout = async () => {
