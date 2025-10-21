@@ -19,6 +19,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete }) => {
   const [timeLeft, setTimeLeft] = useState(60)
   const [isActive, setIsActive] = useState(false)
   const [errors, setErrors] = useState<number[]>([])
+  const [startTime, setStartTime] = useState<number | null>(null)
 
   useEffect(() => {
     setText(getTextForMode(mode))
@@ -34,7 +35,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete }) => {
       setIsActive(false)
       if (interval) clearInterval(interval)
       const wpm = calculateWPM(userInput, 60 - timeLeft)
-      const accuracy = calculateAccuracy(userInput, text, errors)
+      const accuracy = calculateAccuracy(userInput, errors)
       onComplete({ wpm, accuracy, timeLeft: timeLeft })
     }
     return () => {
@@ -44,7 +45,10 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete }) => {
 
   const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    if (!isActive) setIsActive(true)
+    if (!isActive) {
+      setIsActive(true)
+      setStartTime(Date.now())
+    }
 
     setUserInput(value)
     setCurrentIndex(value.length)
@@ -72,9 +76,21 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete }) => {
     }
   }
 
+  const getCurrentWPM = () => {
+    if (!startTime || !isActive) return 0
+    const elapsedTime = (Date.now() - startTime) / 1000 / 60 // minutes
+    const wordsTyped = userInput.trim().split(/\s+/).length
+    return Math.round(wordsTyped / elapsedTime)
+  }
+
+  const getCurrentAccuracy = () => {
+    if (userInput.length === 0) return 100
+    const correctChars = userInput.split('').filter((char, index) => char === text[index]).length
+    return Math.round((correctChars / userInput.length) * 100)
+  }
+
   const renderText = () => {
     if (mode === 'freeform') {
-      // For free-form, just show a prompt
       return <span className="text-gray-500">Type anything! We'll check your words against our dictionary.</span>
     }
 
@@ -108,6 +124,24 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete }) => {
           disabled={timeLeft === 0}
         />
       </div>
+
+      {mode === 'normal' && isActive && (
+        <div className="mb-4 flex justify-center gap-8">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">{getCurrentWPM()}</div>
+            <div className="text-sm text-gray-600">Current WPM</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">{getCurrentAccuracy()}%</div>
+            <div className="text-sm text-gray-600">Accuracy</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">{errors.length}</div>
+            <div className="text-sm text-gray-600">Errors</div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div className="text-lg">Time: {timeLeft}s</div>
         <div className="text-lg">Progress: {userInput.length}/{mode === 'freeform' ? '∞' : text.length}</div>
@@ -118,6 +152,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete }) => {
             setTimeLeft(60)
             setIsActive(false)
             setErrors([])
+            setStartTime(null)
           }}
           className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
         >

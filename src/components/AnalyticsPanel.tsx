@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { motion, useAnimation } from 'framer-motion'
-import { gsap } from 'gsap'
 import { BarChart3, TrendingUp, Clock, Target, Award, Users, Zap, Star, Flame } from 'lucide-react'
 import {
   Chart as ChartJS,
@@ -15,9 +14,21 @@ import {
   LineElement,
 } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
-import { useAuth } from '../contexts/AuthContext'
+import { doc, getDoc, collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuth } from '../contexts/AuthContext'
+// Define interface for score data
+interface ScoreData {
+  id: string
+  wpm: number
+  accuracy: number
+  date: any // Firestore Timestamp or Date
+  userId: string
+  mode?: string
+  time?: number
+  textLength?: number
+  errors?: number
+}
 
 // Register Chart.js components
 ChartJS.register(
@@ -42,14 +53,32 @@ const AnalyticsPanel: React.FC = () => {
     streak: 0
   })
 
+  const [weeklyData, setWeeklyData] = useState({
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        label: 'WPM',
+        data: [0, 0, 0, 0, 0, 0, 0], // Start with zeros instead of fake data
+        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+        borderColor: 'rgba(59, 130, 246, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+      }
+    ]
+  })
+
+  const [chartKey, setChartKey] = useState(0)
+
+  const { currentUser } = useAuth()
   const controls = useAnimation()
 
   useEffect(() => {
     const fetchUserStats = async () => {
-      if (!useAuth().currentUser) return
+      if (!currentUser) return
 
       try {
-        const userDocRef = doc(db, 'users', useAuth().currentUser!.uid)
+        // Fetch user stats from Firestore
+        const userDocRef = doc(db, 'users', currentUser.uid)
         const userDoc = await getDoc(userDocRef)
 
         if (userDoc.exists()) {
@@ -64,46 +93,96 @@ const AnalyticsPanel: React.FC = () => {
           })
         }
 
-        // Fetch recent scores for charts
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
         const scoresQuery = query(
           collection(db, 'scores'),
-          where('userId', '==', useAuth().currentUser!.uid),
-          orderBy('date', 'desc'),
-          limit(7)
+          where('userId', '==', currentUser.uid),
+          where('date', '>=', Timestamp.fromDate(sevenDaysAgo)),
+          orderBy('date', 'desc')
         )
         const scoresSnapshot = await getDocs(scoresQuery)
-        const recentScores = scoresSnapshot.docs.map((doc: any) => doc.data())
+        const recentScores = scoresSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })) as ScoreData[]
 
-        // Update chart data with real scores
-        if (recentScores.length > 0) {
-          weeklyData.datasets[0].data = recentScores.slice(0, 7).map((score: any) => score.wpm)
+        if (recentScores.length === 0) {
+          // Set all zeros if no data
+          setWeeklyData(prev => ({
+            ...prev,
+            datasets: [{
+              ...prev.datasets[0],
+              data: [0, 0, 0, 0, 0, 0, 0]
+            }]
+          }))
+          return
         }
 
-        // Animate stats
-        gsap.from('.stat-card', { opacity: 0, y: 20, stagger: 0.1, duration: 0.8, ease: 'back.out' })
+        // Group scores by day and calculate daily averages
+        const dailyScores: { [key: string]: number[] } = {}
+        recentScores.forEach((score: any) => {
+          try {
+            let date: Date | null = null
+            if (score.date && typeof score.date.toDate === 'function') {
+              date = score.date.toDate()
+            } else if (score.date instanceof Date) {
+              date = score.date
+            }
+
+            if (date) {
+              const dateStr = date.toDateString()
+              if (!dailyScores[dateStr]) dailyScores[dateStr] = []
+              dailyScores[dateStr].push(score.wpm)
+            }
+          } catch (error) {
+            console.warn('Error processing score date:', error, score)
+          }
+        })
+
+        // Calculate average WPM for each of the last 7 days
+        const weeklyDataArray: { wpm: number }[] = []
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date()
+          date.setDate(date.getDate() - i)
+          const dateStr = date.toDateString()
+          const dayScores = dailyScores[dateStr] || []
+          const avgWPM = dayScores.length > 0 ? dayScores.reduce((sum, wpm) => sum + wpm, 0) / dayScores.length : 0
+          weeklyDataArray.push({ wpm: Math.round(avgWPM) })
+        }
+
+        // Update weekly chart data
+        setWeeklyData(prev => ({
+          ...prev,
+          datasets: [{
+            ...prev.datasets[0],
+            data: weeklyDataArray.map(d => d.wpm)
+          }]
+        }))
+
+        // Force chart re-render
+        setChartKey(prev => prev + 1)
+
+        // Calculate streak
+        let streak = 0
+        const today = new Date().toDateString()
+        for (let i = 0; i < 30; i++) {
+          const checkDate = new Date()
+          checkDate.setDate(checkDate.getDate() - i)
+          const checkDateStr = checkDate.toDateString()
+          if (dailyScores[checkDateStr]) {
+            streak++
+          } else if (checkDateStr !== today) {
+            break
+          }
+        }
+
+        setStats(prev => ({ ...prev, streak }))
       } catch (error) {
         console.error('Error fetching user stats:', error)
       }
     }
 
     fetchUserStats()
-
-    controls.start({ scale: [1, 1.05, 1], transition: { duration: 2, repeat: Infinity } })
-  }, [controls, useAuth])
-
-  const weeklyData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'WPM',
-        data: [45, 52, 48, 61, 55, 67, 58],
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        borderRadius: 8,
-      }
-    ]
-  }
+  }, [currentUser])
 
   const accuracyData = {
     labels: ['Accurate', 'Errors'],
@@ -246,7 +325,7 @@ const AnalyticsPanel: React.FC = () => {
               <BarChart3 className="w-5 h-5 text-blue-400" />
               Weekly WPM Progress
             </h3>
-            <Bar data={weeklyData} options={options} />
+            <Bar key={chartKey} data={weeklyData} options={options} />
           </motion.div>
 
           {/* Accuracy Doughnut */}
