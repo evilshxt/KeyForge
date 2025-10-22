@@ -36,7 +36,7 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 
 ---
 
-### 🔥 Real-Time Features (Optional)
+### 🔥 Real-Time Features 
 - **Firebase Realtime Database** — Sync typing sessions in real-time for multiplayer challenges.
 - Compete with friends or globally in live typing races.
 - Real-time leaderboards and progress tracking.

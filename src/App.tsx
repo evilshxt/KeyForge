@@ -7,6 +7,7 @@ import TestPage from './components/TestPage'
 import AnalyticsPanel from './components/AnalyticsPanel'
 import Leaderboard from './components/Leaderboard'
 import MultiplayerRoom from './components/MultiplayerRoom'
+import { ToastProvider } from './components/Toast'
 import { Zap, LogOut, Users } from 'lucide-react'
 
 function AppContent() {
@@ -69,7 +70,11 @@ function AppContent() {
 function App() {
   const { currentUser } = useAuth()
 
-  return currentUser ? <AppContent /> : <Login />
+  return (
+    <ToastProvider>
+      {currentUser ? <AppContent /> : <Login />}
+    </ToastProvider>
+  )
 }
 
 export default App

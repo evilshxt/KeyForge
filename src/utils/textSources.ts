@@ -13,7 +13,16 @@ const normalTexts = [
   "In a futuristic academy, young inventor Mia designed robots that could think and feel. Her creations revolutionized daily life, but she soon realized the ethical dilemmas that came with playing god in the world of artificial intelligence.",
   "The old lighthouse on the cliffside had stood for centuries, guiding ships through stormy nights. When a young keeper named Tomas inherited it, he uncovered its secrets, including hidden messages from sailors long lost to the waves.",
   "During a summer road trip, friends discovered an abandoned amusement park frozen in time. As they explored the rusty rides and faded attractions, they pieced together the story of a joyful place that had been forgotten by the world.",
-  "Artist Sofia painted murals that brought color to the gray walls of her city. Each stroke told a story of hope and resilience, transforming neglected spaces into vibrant tributes to the human spirit and community strength."
+  "Artist Sofia painted murals that brought color to the gray walls of her city. Each stroke told a story of hope and resilience, transforming neglected spaces into vibrant tributes to the human spirit and community strength.",
+  "The young wizard apprentice discovered an ancient spellbook in the library's forbidden section. As he practiced the incantations, he realized that magic required not just power, but wisdom and responsibility to use it for the greater good.",
+  "In the year 2147, humanity had colonized Mars, but the red planet held secrets that challenged everything scientists thought they knew about the solar system and the origins of life itself.",
+  "Sarah's coffee shop was more than just a place for caffeine; it was a community hub where neighbors shared dreams, solved problems, and formed lasting friendships over steaming mugs and fresh pastries.",
+  "The detective followed a trail of clues through the city's underground tunnels, racing against time to prevent a catastrophe that could level half the metropolis and change the world forever.",
+  "When the village elder passed away, she left behind a chest of letters that revealed family secrets spanning three generations, bringing healing and understanding to a family that had been divided for decades."
+]
+
+const monkeyWords = [
+  "cat", "dog", "run", "jump", "play", "swim", "eat", "sleep", "bird", "fish", "tree", "car", "bike", "bus", "train", "plane", "ship", "boat", "house", "door", "window", "chair", "table", "bed", "lamp", "book", "pen", "paper", "phone", "computer", "mouse", "keyboard", "screen", "light", "dark", "day", "night", "sun", "moon", "star", "quick", "brown", "fox", "lazy", "river", "mountain", "valley", "ocean", "desert", "forest", "jungle", "city", "town", "village", "street", "road", "path", "bridge", "tunnel", "cave", "hill", "rock", "stone", "pebble", "sand", "dirt", "grass", "flower", "plant", "leaf", "branch", "root", "stem", "trunk", "bark", "wood", "metal", "plastic", "glass", "fabric", "leather", "cotton", "silk", "wool", "yarn", "thread", "needle", "button", "zipper", "pocket", "wallet", "purse", "bag", "backpack", "suitcase", "luggage", "box", "container", "bottle", "jar", "cup", "mug", "plate", "bowl", "spoon", "fork", "knife", "chopstick", "straw", "napkin", "towel", "soap", "shampoo", "toothbrush", "toothpaste", "comb", "brush", "mirror", "clock", "watch", "timer", "alarm", "calendar", "schedule", "appointment", "meeting", "conference", "call", "email", "message", "text", "chat", "forum", "blog", "post", "comment", "review", "rating", "heart", "like", "share", "follow", "subscribe", "notification", "alert", "warning", "error", "success", "complete", "finish", "start", "begin", "end", "top", "bottom", "left", "right", "front", "back", "inside", "outside", "above", "below", "up", "down", "in", "out", "on", "off", "over", "under", "around", "through", "between", "among", "within", "without", "before", "after", "during", "while", "until", "since", "because", "although", "however", "therefore", "moreover", "furthermore", "consequently", "meanwhile", "previously", "subsequently", "finally", "initially", "ultimately", "eventually", "gradually", "suddenly", "quickly", "slowly", "carefully", "quietly", "loudly", "softly", "gently", "roughly", "smoothly", "approximately", "exactly", "precisely", "nearly", "almost", "about", "around", "nearly", "roughly", "approximately", "exactly", "precisely", "nearly", "almost", "about", "around", "nearly", "roughly", "happy", "sad", "angry", "excited", "tired", "hungry", "thirsty", "cold", "hot", "big", "small", "tall", "short", "long", "wide", "narrow", "deep", "shallow", "fast", "slow", "easy", "hard", "simple", "complex", "good", "bad", "right", "wrong", "true", "false", "yes", "no", "maybe", "perhaps", "definitely", "certainly", "probably", "possibly", "never", "always", "sometimes", "often", "rarely", "usually", "normally", "especially", "particularly", "mainly", "mostly", "generally", "specifically", "exactly", "precisely", "approximately", "roughly", "about", "around", "nearly", "almost", "just", "only", "even", "also", "too", "very", "quite", "rather", "pretty", "fairly", "extremely", "incredibly", "amazingly", "surprisingly", "unexpectedly", "fortunately", "unfortunately", "luckily", "sadly", "happily", "angrily", "excitedly", "tiredly", "quickly", "slowly", "carefully", "quietly", "loudly", "softly", "gently", "roughly", "smoothly", "carefully", "quickly", "slowly", "gently", "roughly", "smoothly", "carefully", "quickly", "slowly", "gently", "roughly", "smoothly"
 ]
 
 export const getTextForMode = (mode: 'normal' | 'freeform' | 'monkey'): string => {
@@ -23,7 +32,16 @@ export const getTextForMode = (mode: 'normal' | 'freeform' | 'monkey'): string =
     case 'freeform':
       return "Type anything you want here. The system will check against a dictionary for accuracy."
     case 'monkey':
-      return "cat dog run jump play swim eat sleep bird fish tree car bike bus train plane ship boat house door window chair table bed lamp book pen paper phone computer mouse keyboard screen light dark day night sun moon star"
+      // Randomly select 80 words from the pool for variety
+      const selectedWords: string[] = []
+      const wordsCopy = [...monkeyWords]
+
+      for (let i = 0; i < 80 && wordsCopy.length > 0; i++) {
+        const randomIndex = Math.floor(Math.random() * wordsCopy.length)
+        selectedWords.push(wordsCopy.splice(randomIndex, 1)[0])
+      }
+
+      return selectedWords.join(' ')
     default:
       return ""
   }

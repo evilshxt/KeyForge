@@ -48,29 +48,16 @@ Stores individual typing test results.
 - `mode` + `wpm` (descending) - For mode-specific leaderboards
 - `date` (descending) - For recent scores
 
-### 3. `leaderboards`
-Pre-computed aggregated data to reduce query costs (updated via Cloud Functions).
-
-**Document ID**: 'global', 'normal', 'freeform', 'monkey'
-
-**Fields**:
-- `topUsers`: array - Top 100 users with their best scores
-  - Each item: { userId, displayName, bestWPM, totalTests }
-- `lastUpdated`: timestamp - When data was last refreshed
-
-**Indexes**:
-- None required (small collection)
-
 ## Query Optimization Strategies
 
 ### 1. Leaderboard Queries
-- Use `leaderboards` collection for top scores instead of sorting `users` or `scores`
-- Update via background Cloud Functions on score submission
-- Limit to top 100 to control costs
+- Query `users` collection directly by `bestWPM` (descending) with limit
+- No Cloud Functions needed - direct queries work well for small user bases
+- Use real-time listeners for live updates
 
 ### 2. User Analytics
 - Pre-compute averages in `users` collection
-- Use `scores` subcollection for detailed history
+- Use `scores` collection for detailed history
 - Paginate large result sets
 
 ### 3. Real-time Updates
@@ -99,14 +86,19 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow read: if request.auth != null;
     }
-    
-    // Leaderboards are publicly readable
-    match /leaderboards/{boardId} {
-      allow read: if true;
-    }
   }
 }
 ```
+
+## Explanation
+1. **Users Collection**:
+   - Users can only access their own user document based on their UID.
+   - This protects personal stats and settings.
+
+2. **Scores Collection**:
+   - All authenticated users can read scores (for leaderboards and analytics).
+   - Users can only write/create scores that belong to them (based on `userId` field).
+   - This allows sharing scores publicly while preventing tampering.
 
 ## Implementation Notes
 

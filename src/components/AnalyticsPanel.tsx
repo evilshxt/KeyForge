@@ -17,6 +17,7 @@ import { Bar, Doughnut } from 'react-chartjs-2'
 import { doc, getDoc, collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { getStreakData } from '../utils/streak'
 // Define interface for score data
 interface ScoreData {
   id: string
@@ -49,9 +50,13 @@ const AnalyticsPanel: React.FC = () => {
     averageWPM: 0,
     bestWPM: 0,
     totalTime: 0,
-    accuracy: 0,
-    streak: 0
+    accuracy: 0
+    // streak will be loaded from localStorage
   })
+
+  const [streak, setStreak] = useState(0)
+
+  const [longestStreak, setLongestStreak] = useState(0)
 
   const [weeklyData, setWeeklyData] = useState({
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -72,6 +77,13 @@ const AnalyticsPanel: React.FC = () => {
   const { currentUser } = useAuth()
   const controls = useAnimation()
 
+  // Load streak data on mount
+  useEffect(() => {
+    const streakData = getStreakData()
+    setStreak(streakData.currentStreak)
+    setLongestStreak(streakData.longestStreak)
+  }, [])
+
   useEffect(() => {
     const fetchUserStats = async () => {
       if (!currentUser) return
@@ -88,8 +100,7 @@ const AnalyticsPanel: React.FC = () => {
             averageWPM: data.averageWPM || 0,
             bestWPM: data.bestWPM || 0,
             totalTime: data.totalTime || 0,
-            accuracy: data.accuracy || 0,
-            streak: data.streak || 0
+            accuracy: data.accuracy || 0
           })
         }
 
@@ -161,21 +172,9 @@ const AnalyticsPanel: React.FC = () => {
         // Force chart re-render
         setChartKey(prev => prev + 1)
 
-        // Calculate streak
-        let streak = 0
-        const today = new Date().toDateString()
-        for (let i = 0; i < 30; i++) {
-          const checkDate = new Date()
-          checkDate.setDate(checkDate.getDate() - i)
-          const checkDateStr = checkDate.toDateString()
-          if (dailyScores[checkDateStr]) {
-            streak++
-          } else if (checkDateStr !== today) {
-            break
-          }
-        }
-
-        setStats(prev => ({ ...prev, streak }))
+        // Get streak data from localStorage
+        const streakData = getStreakData()
+        setStreak(streakData.currentStreak)
       } catch (error) {
         console.error('Error fetching user stats:', error)
       }
@@ -307,7 +306,7 @@ const AnalyticsPanel: React.FC = () => {
           >
             <motion.div className="absolute inset-0 bg-cyan-500/10 opacity-0 hover:opacity-100 transition-opacity" animate={controls} />
             <Flame className="w-6 h-6 text-cyan-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-cyan-400 relative z-10">{stats.streak}</div>
+            <div className="text-2xl font-bold text-cyan-400 relative z-10">{streak}</div>
             <div className="text-sm text-slate-400 relative z-10">Day Streak</div>
           </motion.div>
         </div>
@@ -386,7 +385,7 @@ const AnalyticsPanel: React.FC = () => {
             <Flame className="w-8 h-8 text-blue-400" />
             <div>
               <div className="text-blue-400 font-semibold">Consistent Typist</div>
-              <div className="text-slate-300 text-sm">{stats.streak} Day Streak</div>
+              <div className="text-slate-300 text-sm">{streak} Day Streak (Best: {longestStreak})</div>
             </div>
           </div>
         </motion.div>

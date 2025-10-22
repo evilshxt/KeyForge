@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Trophy, Medal, Award, TrendingUp } from 'lucide-react'
-import { collection, query, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore'
+import { collection, query, orderBy, limit, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
 interface LeaderboardEntry {
@@ -18,7 +18,7 @@ const Leaderboard: React.FC = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        // Fetch top 10 users by bestWPM
+        // Fetch top 10 users by bestWPM from users collection (no Cloud Functions needed)
         const q = query(
           collection(db, 'users'),
           orderBy('bestWPM', 'desc'),
@@ -27,14 +27,15 @@ const Leaderboard: React.FC = () => {
         const querySnapshot = await getDocs(q)
         const topUsers: LeaderboardEntry[] = querySnapshot.docs.map((doc) => ({
           userId: doc.id,
-          displayName: doc.data().displayName || doc.data().email.split('@')[0],
-          bestWPM: doc.data().bestWPM,
-          totalTests: doc.data().totalTests
-        }))
+          displayName: doc.data().displayName || doc.data().email?.split('@')[0] || 'Anonymous',
+          bestWPM: doc.data().bestWPM || 0,
+          totalTests: doc.data().totalTests || 0
+        })).filter(user => user.bestWPM > 0) // Only show users with scores
 
         setLeaderboard(topUsers)
       } catch (error) {
         console.error('Error fetching leaderboard:', error)
+        setLeaderboard([])
       } finally {
         setLoading(false)
       }
@@ -42,17 +43,20 @@ const Leaderboard: React.FC = () => {
 
     fetchLeaderboard()
 
-    // Set up real-time listener for updates
+    // Set up real-time listener for leaderboard updates
     const unsubscribe = onSnapshot(
       query(collection(db, 'users'), orderBy('bestWPM', 'desc'), limit(10)),
       (snapshot) => {
         const updatedUsers: LeaderboardEntry[] = snapshot.docs.map((doc) => ({
           userId: doc.id,
-          displayName: doc.data().displayName || doc.data().email.split('@')[0],
-          bestWPM: doc.data().bestWPM,
-          totalTests: doc.data().totalTests
-        }))
+          displayName: doc.data().displayName || doc.data().email?.split('@')[0] || 'Anonymous',
+          bestWPM: doc.data().bestWPM || 0,
+          totalTests: doc.data().totalTests || 0
+        })).filter(user => user.bestWPM > 0)
         setLeaderboard(updatedUsers)
+      },
+      (error) => {
+        console.error('Error listening to leaderboard updates:', error)
       }
     )
 

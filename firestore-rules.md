@@ -26,11 +26,6 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
-
-    // Additional collections if needed (e.g., for future features)
-    // match /otherCollection/{docId} {
-    //   allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-    // }
   }
 }
 ```
