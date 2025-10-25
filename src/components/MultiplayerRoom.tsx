@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ref, set, onValue, off, update, remove, child } from 'firebase/database'
 import { rtdb } from '../firebase'
 import { motion } from 'framer-motion'
-import { Users, ArrowRight, Trophy, Zap, User, Hash, Crown, Play, CheckCircle, XCircle, Timer } from 'lucide-react'
+import { Users, ArrowRight, Trophy, Zap, Hash, Crown, Play, CheckCircle, XCircle, Timer, FileText, PenTool, Copy, Check } from 'lucide-react'
 import TypingBox from './TypingBox'
 
 interface Player {
@@ -20,9 +20,11 @@ interface RoomData {
   players: { [uid: string]: Player }
   status: 'waiting' | 'countdown' | 'active' | 'finished'
   countdown: number
-  mode: 'normal' | 'freeform' | 'monkey'
+  mode: 'normal' | 'freeform'
   winner?: string
   createdAt: number
+  // For normal mode - paragraph indices to sync between players
+  paragraphIndices?: number[]
 }
 
 const MultiplayerRoom: React.FC = () => {
@@ -32,6 +34,8 @@ const MultiplayerRoom: React.FC = () => {
   const [roomCode, setRoomCode] = useState('')
   const [isHost, setIsHost] = useState(false)
   const [isReady, setIsReady] = useState(false)
+  const [selectedMode, setSelectedMode] = useState<'normal' | 'freeform'>('normal')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (currentUser) {
@@ -50,6 +54,18 @@ const MultiplayerRoom: React.FC = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase()
   }
 
+  const copyRoomCode = async () => {
+    if (roomData?.roomId) {
+      try {
+        await navigator.clipboard.writeText(roomData.roomId)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (error) {
+        console.error('Failed to copy room code:', error)
+      }
+    }
+  }
+
   const createRoom = async () => {
     if (!currentUser || !playerName) return
 
@@ -63,8 +79,10 @@ const MultiplayerRoom: React.FC = () => {
         },
         status: 'waiting',
         countdown: 0,
-        mode: 'normal',
-        createdAt: Date.now()
+        mode: selectedMode,
+        createdAt: Date.now(),
+        // For normal mode, we'll generate paragraph indices when the game starts
+        paragraphIndices: selectedMode === 'normal' ? [] : undefined
       }
       await set(roomRef, roomData)
       setRoomData(roomData)
@@ -133,7 +151,26 @@ const MultiplayerRoom: React.FC = () => {
     if (!roomData || !isHost) return
 
     const roomRef = ref(rtdb, `rooms/${roomData.roomId}`)
-    update(roomRef, { status: 'countdown', countdown: 5 }).catch(console.error)
+
+    // For normal mode, generate paragraph indices to sync between players
+    let updateData: Partial<RoomData> = { status: 'countdown', countdown: 5 }
+
+    if (roomData.mode === 'normal') {
+      // Generate 3-5 random paragraph indices (assuming there are at least 30 paragraphs)
+      const numParagraphs = 30 // Based on the README, there are 30+ paragraphs
+      const numToSelect = Math.floor(Math.random() * 3) + 3 // 3-5 paragraphs
+      const indices: number[] = []
+      for (let i = 0; i < numToSelect; i++) {
+        let index
+        do {
+          index = Math.floor(Math.random() * numParagraphs)
+        } while (indices.includes(index))
+        indices.push(index)
+      }
+      updateData.paragraphIndices = indices
+    }
+
+    update(roomRef, updateData).catch(console.error)
 
     // Countdown logic (client-side for UI, but synced via DB)
     const countdownInterval = setInterval(() => {
@@ -221,18 +258,18 @@ const MultiplayerRoom: React.FC = () => {
                 <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-gradient-to-r from-pink-500/20 to-yellow-500/20 rounded-full blur-lg"></div>
               </div>
               <div className="space-y-4 text-lg text-slate-300 mb-6">
-                <p className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                   Test your typing skills against friends in real-time battles!
-                </p>
-                <p className="flex items-center gap-3">
+                </div>
+                <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
                   Create a room, share the code, and prove your speed!
-                </p>
-                <p className="flex items-center gap-3">
+                </div>
+                <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
                   Epic typing showdowns with accuracy tracking!
-                </p>
+                </div>
               </div>
             </motion.div>
             <motion.div
@@ -283,19 +320,32 @@ const MultiplayerRoom: React.FC = () => {
                 Multiplayer Typing Room
               </h1>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                  <User className="w-4 h-4 text-blue-400" />
-                  Your Name
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                    className="w-full p-3 pl-10 rounded-lg bg-slate-800/50 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Enter your name"
-                  />
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <label className="block text-sm font-medium mb-3">Choose Mode</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMode('normal')}
+                    className={`p-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 font-medium ${
+                      selectedMode === 'normal'
+                        ? 'border-blue-400 bg-blue-400/20 text-blue-400'
+                        : 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Normal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMode('freeform')}
+                    className={`p-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 font-medium ${
+                      selectedMode === 'freeform'
+                        ? 'border-purple-400 bg-purple-400/20 text-purple-400'
+                        : 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <PenTool className="w-4 h-4" />
+                    Free Form
+                  </button>
                 </div>
               </div>
               <div className="mb-6">
@@ -424,7 +474,23 @@ const MultiplayerRoom: React.FC = () => {
                   <Timer className="w-6 h-6 text-blue-400 animate-spin" />
                   <h2 className="text-2xl font-semibold">Waiting for players...</h2>
                 </div>
-                <p className="text-slate-300">Share the room code: <strong className="text-blue-400 font-mono text-lg">{roomData.roomId}</strong></p>
+                <div className="text-slate-300">
+                  Share the room code:
+                  <div className="inline-flex items-center gap-2 ml-2">
+                    <strong className="text-blue-400 font-mono text-lg">{roomData.roomId}</strong>
+                    <button
+                      onClick={copyRoomCode}
+                      className="p-1 hover:bg-slate-600 rounded transition-colors"
+                      title="Copy room code"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-slate-400 hover:text-slate-300" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -439,7 +505,7 @@ const MultiplayerRoom: React.FC = () => {
             )}
 
             {isGameActive && (
-              <TypingBox mode={roomData.mode} onComplete={handleTestComplete} />
+              <TypingBox mode={roomData.mode} onComplete={handleTestComplete} paragraphIndices={roomData.paragraphIndices} />
             )}
 
             {isFinished && (
@@ -449,9 +515,9 @@ const MultiplayerRoom: React.FC = () => {
                   <h2 className="text-3xl font-bold mb-2">Game Finished!</h2>
                 </div>
                 {roomData.winner && (
-                  <p className="text-xl mb-6">
+                  <div className="text-xl mb-6">
                     Winner: <span className="text-yellow-400 font-semibold">{roomData.players[roomData.winner]?.name}</span> with {roomData.players[roomData.winner]?.wpm} WPM!
-                  </p>
+                  </div>
                 )}
                 <div className="space-y-3">
                   {players.map(player => (

@@ -16,9 +16,16 @@ It helps users improve their typing speed, accuracy, and consistency across mult
    - **Smart completion** - finishes immediately when all text is typed (even with errors)
    - Character-based accuracy calculation with real-time error highlighting
 2. **Free-Form Mode** — Type anything you want; accuracy is checked against a built-in dictionary.
-   - Uses a lightweight English word list (optimized `.txt`) loaded lazily for performance.
-3. **Monkey Mode** — Random sequence of short words.
-   - Designed for raw speed and character-level precision.
+   - **Post-test validation** - Dictionary checking happens after test completion, not during typing
+   - **Persistent results modal** - Stays open until manually dismissed for thorough word analysis
+   - **Enhanced word display** - Large, scrollable invalid words list with bullet separators
+   - **Copy to clipboard** - Export invalid words for further analysis
+   - Uses optimized in-memory dictionary caching for fast validation
+3. **Monkey Mode** — Type random words from a comprehensive English dictionary.
+   - **GitHub Dictionary Integration** - Uses the same 370,000+ word dictionary as freeform mode
+   - **Smart Word Selection** - Filters for common words (3-8 characters) for optimal typing practice
+   - **Fallback System** - 400+ curated common words if dictionary fails to load
+   - **Random Generation** - Fresh word selection each time for variety
 
 ---
 
@@ -59,11 +66,11 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 - ✅ **Real-time Stats**: Live WPM, accuracy, and error tracking
 - ✅ **Visual Progress**: Clear indicators showing current paragraph and completion status
 
-#### **Enhanced Error Handling**
-- ✅ **Comprehensive Debugging**: Detailed console logs for all operations
-- ✅ **Toast Notifications**: Success and error feedback for all actions
-- ✅ **Firebase Sync**: Automatic saving with verification and error recovery
-- ✅ **Robust Validation**: Input validation and graceful error recovery
+#### **Dictionary Integration**
+- ✅ **GitHub Dictionary API** - 370,000+ words for comprehensive validation and word generation
+- ✅ **Smart Fallback System** - 400+ curated words if API fails
+- ✅ **In-Memory Caching** - Fast loading with 7-day cache duration
+- ✅ **Common Word Filtering** - Monkey mode uses optimal 3-8 character words
 
 ---
 
@@ -76,7 +83,7 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 | 🔥 **Firebase** | Authentication, Firestore, Realtime Database |
 | 🧠 **JavaScript (ES2025)** | Core typing logic and analytics |
 | 📦 **Firebase Firestore** | Cloud database for scores and user data |
-| 📜 **words.txt** | Offline English dictionary for free-form mode |
+| 🌐 **GitHub API** | 370,000+ word English dictionary for validation |
 
 ---
 
@@ -84,9 +91,6 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 
 ```
 KeyForge/
-├── public/
-│   └── data/
-│       └── words.txt            # Dictionary for free-form mode
 ├── src/
 │   ├── components/
 │   │   ├── Login.tsx            # Firebase authentication
@@ -101,7 +105,8 @@ KeyForge/
 │   │   └── AuthContext.tsx      # Firebase auth context
 │   ├── utils/
 │   │   ├── accuracy.ts          # WPM and accuracy calculations
-│   │   └── textSources.ts       # Text generation utilities
+│   │   ├── textSources.ts       # Text generation utilities
+│   │   └── wordValidator.ts     # Dictionary validation logic
 │   ├── firebase.ts              # Firebase configuration
 │   ├── App.tsx                  # Main application
 │   └── main.tsx
@@ -117,8 +122,10 @@ KeyForge/
 
 | Technique | Description |
 |------------|-------------|
-| **Lazy Loading** | The English dictionary (`words.txt`) is fetched only when Free-Form Mode is selected. |
-| **Set() Lookup Optimization** | Dictionary words are stored in a JavaScript `Set` for O(1) lookups. |
+| **Post-Test Validation** | Freeform mode validates words after test completion, not during typing |
+| **In-Memory Dictionary** | Dictionary loaded once and cached in memory, avoiding localStorage quota issues |
+| **GitHub API Integration** | Loads 370,000+ word dictionary from GitHub for comprehensive validation |
+| **Smart Fallback System** | Falls back to basic word list if GitHub API fails |
 | **Cloud Analytics Engine** | Aggregates and stores scores, accuracy, and WPM in Firebase Firestore. |
 | **Firebase Integration** | Handles authentication and real-time syncing without external servers. |
 | **Adjusted WPM Calculation** | WPM scores are adjusted based on accuracy for fairer competition. |
@@ -223,7 +230,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **English Word List**: The free-form typing test uses a word list from the [dwyl/english-words](https://github.com/dwyl/english-words) repository. This comprehensive dictionary enables accurate word validation without requiring external APIs.
+- **English Word Dictionary**: The free-form typing test uses the comprehensive English word list from the [dwyl/english-words](https://github.com/dwyl/english-words) repository via GitHub API. This enables accurate validation of 370,000+ words with smart caching and fallback systems.
 - **Firebase**: For providing robust authentication and real-time database services.
 
 ---

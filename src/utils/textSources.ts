@@ -1,3 +1,6 @@
+// @ts-ignore
+import { getRandomMonkeyWords } from './wordValidator'
+
 const normalTexts = [
   "In the quiet town of Eldoria, young Elara discovered an ancient map hidden in her grandmother's attic. The map led to a forgotten forest where legends spoke of a hidden treasure guarded by mystical creatures. With courage in her heart, she set out on an adventure that would change her life forever.",
   "Dr. Samuel Thorne had always been fascinated by the stars. One stormy night, he observed a peculiar comet through his telescope. This sighting sparked a series of events that would lead him to uncover secrets about the universe that no one had ever imagined possible.",
@@ -31,11 +34,7 @@ const normalTexts = [
   "In the bustling marketplace, merchants haggled over prices while customers searched for the perfect ingredients. This daily ritual of commerce created not just economic transactions, but also social connections that wove the fabric of community life."
 ]
 
-const monkeyWords = [
-  "cat", "dog", "run", "jump", "play", "swim", "eat", "sleep", "bird", "fish", "tree", "car", "bike", "bus", "train", "plane", "ship", "boat", "house", "door", "window", "chair", "table", "bed", "lamp", "book", "pen", "paper", "phone", "computer", "mouse", "keyboard", "screen", "light", "dark", "day", "night", "sun", "moon", "star", "quick", "brown", "fox", "lazy", "river", "mountain", "valley", "ocean", "desert", "forest", "jungle", "city", "town", "village", "street", "road", "path", "bridge", "tunnel", "cave", "hill", "rock", "stone", "pebble", "sand", "dirt", "grass", "flower", "plant", "leaf", "branch", "root", "stem", "trunk", "bark", "wood", "metal", "plastic", "glass", "fabric", "leather", "cotton", "silk", "wool", "yarn", "thread", "needle", "button", "zipper", "pocket", "wallet", "purse", "bag", "backpack", "suitcase", "luggage", "box", "container", "bottle", "jar", "cup", "mug", "plate", "bowl", "spoon", "fork", "knife", "chopstick", "straw", "napkin", "towel", "soap", "shampoo", "toothbrush", "toothpaste", "comb", "brush", "mirror", "clock", "watch", "timer", "alarm", "calendar", "schedule", "appointment", "meeting", "conference", "call", "email", "message", "text", "chat", "forum", "blog", "post", "comment", "review", "rating", "heart", "like", "share", "follow", "subscribe", "notification", "alert", "warning", "error", "success", "complete", "finish", "start", "begin", "end", "top", "bottom", "left", "right", "front", "back", "inside", "outside", "above", "below", "up", "down", "in", "out", "on", "off", "over", "under", "around", "through", "between", "among", "within", "without", "before", "after", "during", "while", "until", "since", "because", "although", "however", "therefore", "moreover", "furthermore", "consequently", "meanwhile", "previously", "subsequently", "finally", "initially", "ultimately", "eventually", "gradually", "suddenly", "quickly", "slowly", "carefully", "quietly", "loudly", "softly", "gently", "roughly", "smoothly", "approximately", "exactly", "precisely", "nearly", "almost", "about", "around", "nearly", "roughly", "approximately", "exactly", "precisely", "nearly", "almost", "about", "around", "nearly", "roughly", "happy", "sad", "angry", "excited", "tired", "hungry", "thirsty", "cold", "hot", "big", "small", "tall", "short", "long", "wide", "narrow", "deep", "shallow", "fast", "slow", "easy", "hard", "simple", "complex", "good", "bad", "right", "wrong", "true", "false", "yes", "no", "maybe", "perhaps", "definitely", "certainly", "probably", "possibly", "never", "always", "sometimes", "often", "rarely", "usually", "normally", "especially", "particularly", "mainly", "mostly", "generally", "specifically", "exactly", "precisely", "approximately", "roughly", "about", "around", "nearly", "almost", "just", "only", "even", "also", "too", "very", "quite", "rather", "pretty", "fairly", "extremely", "incredibly", "amazingly", "surprisingly", "unexpectedly", "fortunately", "unfortunately", "luckily", "sadly", "happily", "angrily", "excitedly", "tiredly", "quickly", "slowly", "carefully", "quietly", "loudly", "softly", "gently", "roughly", "smoothly", "carefully", "quickly", "slowly", "gently", "roughly", "smoothly", "carefully", "quickly", "slowly", "gently", "roughly", "smoothly"
-]
-
-export const getTextForMode = (mode: 'normal' | 'freeform' | 'monkey'): string => {
+export const getTextForMode = async (mode: 'normal' | 'freeform' | 'monkey'): Promise<string> => {
   switch (mode) {
     case 'normal':
       // Select 3-5 random paragraphs for a longer typing experience
@@ -57,17 +56,21 @@ export const getTextForMode = (mode: 'normal' | 'freeform' | 'monkey'): string =
     case 'freeform':
       return "Type anything you want here. The system will check against a dictionary for accuracy."
     case 'monkey':
-      // Randomly select 80 words from the pool for variety
-      const selectedWords: string[] = []
-      const wordsCopy = [...monkeyWords]
-
-      for (let i = 0; i < 80 && wordsCopy.length > 0; i++) {
-        const randomIndex = Math.floor(Math.random() * wordsCopy.length)
-        selectedWords.push(wordsCopy.splice(randomIndex, 1)[0])
+      // Get random words from the GitHub dictionary (same as freeform mode)
+      try {
+        return await getRandomMonkeyWords(80)
+      } catch (error) {
+        console.error('❌ Failed to load monkey mode words:', error)
+        // Fallback to a simple hardcoded list if dictionary fails
+        const fallbackWords = ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog', 'and', 'runs', 'through', 'the', 'forest', 'with', 'great', 'speed', 'and', 'agility', 'while', 'avoiding', 'all', 'obstacles', 'in', 'its', 'path', 'towards', 'victory', 'and', 'success', 'in', 'this', 'amazing', 'typing', 'test', 'that', 'measures', 'your', 'skills', 'and', 'abilities', 'with', 'precision', 'and', 'accuracy', 'showing', 'your', 'true', 'potential', 'as', 'a', 'master', 'typist', 'who', 'can', 'type', 'faster', 'than', 'lightning', 'and', 'more', 'accurately', 'than', 'a', 'laser', 'beam', 'hitting', 'its', 'target', 'with', 'perfect', 'precision', 'every', 'single', 'time', 'without', 'fail']
+        return fallbackWords.slice(0, 80).join(' ')
       }
-
-      return selectedWords.join(' ')
     default:
       return ""
   }
+}
+
+export const getParagraphsByIndices = (indices: number[]): string => {
+  const selectedParagraphs = indices.map(index => normalTexts[index]).filter(Boolean)
+  return selectedParagraphs.join('\n\n')
 }

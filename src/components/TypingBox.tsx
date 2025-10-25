@@ -1,19 +1,21 @@
 // @ts-ignore
 import React, { useState, useEffect, useCallback } from 'react'
 // @ts-ignore
-import { getTextForMode } from '../utils/textSources'
+import { getTextForMode, getParagraphsByIndices } from '../utils/textSources'
 // @ts-ignore
 import { calculateWPM, calculateAccuracy } from '../utils/accuracy'
 // @ts-ignore
-import { isValidWord } from '../utils/wordValidator'
+import { validateWordsAfterTest } from '../utils/wordValidator'
 
 interface TypingBoxProps {
   mode: 'normal' | 'freeform' | 'monkey'
   onComplete: (stats: { wpm: number, accuracy: number, timeLeft: number, rawWpm?: number }) => void
   onStatsUpdate?: (stats: { rawWpm: number, adjustedWpm: number, accuracy: number, timeLeft: number }) => void
+  // For multiplayer mode
+  paragraphIndices?: number[]
 }
 
-const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }) => {
+const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, paragraphIndices }) => {
   const [paragraphs, setParagraphs] = useState<string[]>([])
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0)
   const [text, setText] = useState('')
@@ -26,13 +28,29 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
   const [hasCompleted, setHasCompleted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [completedParagraphs, setCompletedParagraphs] = useState(0)
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationResults, setValidationResults] = useState<{
+    validWords: string[]
+    invalidWords: string[]
+    accuracy: number
+  } | null>(null)
+  const [modalDismissed, setModalDismissed] = useState(false)
 
   // Load text on mode change
   useEffect(() => {
-    const loadText = () => {
+    const loadText = async () => {
       try {
         console.log('🔄 Loading text for mode:', mode)
-        const newText = getTextForMode(mode)
+
+        let newText: string
+
+        // For multiplayer normal mode, use provided paragraph indices
+        if (mode === 'normal' && paragraphIndices && paragraphIndices.length > 0) {
+          newText = getParagraphsByIndices(paragraphIndices)
+          console.log('📝 Using multiplayer paragraph indices:', paragraphIndices)
+        } else {
+          newText = await getTextForMode(mode)
+        }
 
         if (mode === 'normal') {
           const paraArray = newText.split('\n\n').filter(p => p.trim().length > 0)
@@ -50,6 +68,8 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
         setErrors([])
         setHasCompleted(false)
         setCompletedParagraphs(0)
+        setValidationResults(null)
+        setModalDismissed(false) // Reset modal state
         setIsLoading(false)
         console.log('✅ Text loaded successfully')
       } catch (error) {
@@ -60,7 +80,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
     }
 
     loadText()
-  }, [mode])
+  }, [mode, paragraphIndices])
 
   // Timer effect with better error handling
   useEffect(() => {
@@ -86,6 +106,90 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
     }
   }, [isActive, timeLeft, hasCompleted])
 
+  const handleFreeformCompletion = async () => {
+    setIsValidating(true)
+    console.log('🔍 Starting freeform validation...')
+
+    try {
+      const results = await validateWordsAfterTest(userInput)
+      console.log('✅ Freeform validation complete:', results)
+      console.log('🔓 Setting validation results - modal should now be visible')
+
+      setValidationResults(results)
+      setModalDismissed(false) // Ensure modal is visible
+
+      // Calculate final stats with validated accuracy
+      const rawWpm = calculateWPM(userInput, 60 - timeLeft)
+      const adjustedWpm = Math.round(rawWpm * (results.accuracy / 100))
+
+      console.log('📈 Freeform final stats:', { rawWpm, adjustedWpm, accuracy: results.accuracy, timeLeft })
+
+      onComplete({
+        wpm: adjustedWpm,
+        accuracy: results.accuracy,
+        timeLeft,
+        rawWpm
+      })
+
+      setHasCompleted(true)
+    } catch (error) {
+      console.error('❌ Error during freeform validation:', error)
+      // Fallback to basic calculation if validation fails
+      const rawWpm = calculateWPM(userInput, 60 - timeLeft)
+      const adjustedWpm = Math.round(rawWpm * 0.8) // Assume 80% accuracy as fallback
+
+      onComplete({
+        wpm: adjustedWpm,
+        accuracy: 80,
+        timeLeft,
+        rawWpm
+      })
+
+      setHasCompleted(true)
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleTestCompletion = () => {
+    // Calculate values before try block to fix linter errors
+    let rawWpm = 0
+    let adjustedWpm = 0
+
+    try {
+      rawWpm = calculateWPM(userInput, 60 - timeLeft)
+
+      let accuracy = 0
+      if (mode === 'freeform') {
+        const words = userInput.trim().split(/\s+/)
+        const validWords = words.filter(word => word.length > 2).length
+        accuracy = words.length > 0 ? Math.round((validWords / words.length) * 100) : 100
+      } else {
+        const correctChars = userInput.split('').filter((char, index) =>
+          index < text.length && char === text[index]
+        ).length
+        accuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 100
+      }
+
+      adjustedWpm = Math.round(rawWpm * (accuracy / 100))
+
+      console.log('📈 Final stats:', { rawWpm, adjustedWpm, accuracy, timeLeft })
+
+      onComplete({
+        wpm: adjustedWpm,
+        accuracy,
+        timeLeft,
+        rawWpm
+      })
+    } catch (error) {
+      console.error('❌ Error calculating test results:', error)
+      onComplete({ wpm: adjustedWpm, accuracy: 0, timeLeft, rawWpm })
+    }
+
+    // Always mark as completed, regardless of success or failure
+    setHasCompleted(true)
+  }
+
   // Completion check effect
   useEffect(() => {
     if (!isActive || hasCompleted) return
@@ -94,7 +198,8 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
 
     const shouldComplete = () => {
       if (mode === 'freeform') {
-        return timeLeft === 0
+        // For freeform, only complete when time runs out or user has typed enough
+        return timeLeft === 0 || userInput.trim().split(/\s+/).length >= 50
       }
 
       // For normal mode, complete when current paragraph is fully typed OR time runs out
@@ -116,43 +221,30 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
     if (shouldComplete()) {
       console.log('🎯 Test should complete!')
       setIsActive(false)
-      setHasCompleted(true)
 
-      // Calculate values before try block to fix linter errors
-      let rawWpm = 0
-      let adjustedWpm = 0
-
-      try {
-        rawWpm = calculateWPM(userInput, 60 - timeLeft)
-
-        let accuracy = 0
-        if (mode === 'freeform') {
-          const words = userInput.trim().split(/\s+/)
-          const validWords = words.filter(word => word.length > 2).length
-          accuracy = words.length > 0 ? Math.round((validWords / words.length) * 100) : 100
-        } else {
-          const correctChars = userInput.split('').filter((char, index) =>
-            index < text.length && char === text[index]
-          ).length
-          accuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 100
-        }
-
-        adjustedWpm = Math.round(rawWpm * (accuracy / 100))
-
-        console.log('📈 Final stats:', { rawWpm, adjustedWpm, accuracy, timeLeft })
-
-        onComplete({
-          wpm: adjustedWpm,
-          accuracy,
-          timeLeft,
-          rawWpm
-        })
-      } catch (error) {
-        console.error('❌ Error calculating test results:', error)
-        onComplete({ wpm: adjustedWpm, accuracy: 0, timeLeft, rawWpm })
+      if (mode === 'freeform') {
+        // For freeform, validate words after completion
+        handleFreeformCompletion()
+      } else {
+        // For normal and monkey modes, complete immediately
+        setHasCompleted(true)
+        handleTestCompletion()
       }
     }
   }, [isActive, timeLeft, userInput, text, errors, onComplete, hasCompleted, mode, currentParagraphIndex, paragraphs, completedParagraphs])
+
+  // Debug modal state changes
+  useEffect(() => {
+    console.log('🔍 Modal state changed:', {
+      hasValidationResults: !!validationResults,
+      modalDismissed,
+      mode,
+      showModal: validationResults && mode === 'freeform' && !modalDismissed
+    })
+    if (validationResults) {
+      console.log('📊 Validation results:', validationResults)
+    }
+  }, [validationResults, modalDismissed, mode])
 
   const advanceToNextParagraph = useCallback(() => {
     if (mode !== 'normal' || currentParagraphIndex >= paragraphs.length - 1) return
@@ -172,7 +264,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
     const value = e.target.value
 
     // Prevent input if test is completed or loading
-    if (hasCompleted || isLoading) return
+    if (hasCompleted || isLoading || isValidating) return
 
     // Start the test on first keystroke
     if (!isActive && value.length > 0) {
@@ -195,38 +287,35 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
       }
     }
 
-    // Track errors for normal and monkey modes
-    if (mode !== 'freeform' && text) {
-      try {
-        const newErrors: number[] = []
-        for (let i = 0; i < value.length && i < text.length; i++) {
-          if (value[i] !== text[i]) {
-            newErrors.push(i)
-          }
-        }
-        setErrors(newErrors)
-      } catch (error) {
-        console.error('❌ Error tracking errors:', error)
+    // For freeform mode, no real-time validation - just track basic errors for display
+    if (mode === 'freeform') {
+      // Simple visual feedback - highlight long words that might be invalid
+      const words = value.trim().split(/\s+/)
+      const lastWord = words[words.length - 1]
+      if (lastWord && lastWord.length > 2) {
+        // Just set a simple error indicator for now
+        setErrors(lastWord.length > 10 ? [value.length - 1] : [])
+      } else {
         setErrors([])
       }
-    } else if (mode === 'freeform') {
-      try {
-        const words = value.trim().split(/\s+/)
-        const lastWord = words[words.length - 1]
-
-        if (lastWord && lastWord.length > 2) {
-          const isValid = await isValidWord(lastWord)
-          const newErrors = isValid ? [] : [value.length - 1]
+    } else {
+      // Track errors for normal and monkey modes
+      if (text) {
+        try {
+          const newErrors: number[] = []
+          for (let i = 0; i < value.length && i < text.length; i++) {
+            if (value[i] !== text[i]) {
+              newErrors.push(i)
+            }
+          }
           setErrors(newErrors)
-        } else {
+        } catch (error) {
+          console.error('❌ Error tracking errors:', error)
           setErrors([])
         }
-      } catch (error) {
-        console.error('❌ Error validating word:', error)
-        setErrors([])
       }
     }
-  }, [isActive, hasCompleted, isLoading, mode, text, currentParagraphIndex, paragraphs, advanceToNextParagraph])
+  }, [isActive, hasCompleted, isLoading, isValidating, mode, text, currentParagraphIndex, paragraphs, advanceToNextParagraph])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (mode === 'normal' && e.key === 'Enter' && !e.shiftKey) {
@@ -258,6 +347,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
 
     try {
       if (mode === 'freeform') {
+        // For freeform mode during typing, use simple heuristic
         const words = userInput.trim().split(/\s+/)
         if (words.length === 0) return 100
 
@@ -330,7 +420,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
     })
   }
 
-  const handleRestart = useCallback(() => {
+  const handleRestart = useCallback(async () => {
     console.log('🔄 Restarting test...')
     setUserInput('')
     setCurrentIndex(0)
@@ -341,16 +431,23 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
     setHasCompleted(false)
     setCurrentParagraphIndex(0)
     setCompletedParagraphs(0)
+    setValidationResults(null)
+    setModalDismissed(false) // Reset modal state
 
     // Reload text
-    const newText = getTextForMode(mode)
-    if (mode === 'normal') {
-      const paraArray = newText.split('\n\n').filter(p => p.trim().length > 0)
-      setParagraphs(paraArray)
-      setText(paraArray[0] || '')
-    } else {
-      setParagraphs([newText])
-      setText(newText)
+    try {
+      const newText = await getTextForMode(mode)
+      if (mode === 'normal') {
+        const paraArray = newText.split('\n\n').filter(p => p.trim().length > 0)
+        setParagraphs(paraArray)
+        setText(paraArray[0] || '')
+      } else {
+        setParagraphs([newText])
+        setText(newText)
+      }
+    } catch (error) {
+      console.error('❌ Error reloading text:', error)
+      setText('Error loading text. Please try again.')
     }
   }, [mode])
 
@@ -383,12 +480,122 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
           onKeyDown={handleKeyDown}
           className="w-full p-2 sm:p-3 text-base sm:text-lg border rounded-lg dark:bg-gray-700 dark:text-white"
           placeholder={mode === 'freeform' ? "Start typing your own text..." : "Start typing..."}
-          disabled={timeLeft === 0 || hasCompleted}
+          disabled={timeLeft === 0 || hasCompleted || isValidating}
           autoFocus
         />
       </div>
 
-      {isActive && !hasCompleted && (
+      {/* Validation Loading Modal */}
+      {isValidating && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-center max-w-sm mx-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Checking Results...</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Validating your words against our dictionary</p>
+          </div>
+        </div>
+      )}
+
+      {/* Validation Results Modal */}
+      {validationResults && mode === 'freeform' && !modalDismissed && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-6 text-gray-900 dark:text-white text-center">
+              📊 Word Validation Results
+            </h3>
+
+            <div className="mb-6 grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {userInput.trim().split(/\s+/).length}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Total Words</div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {validationResults.validWords.length}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Valid Words</div>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {validationResults.invalidWords.length}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Invalid Words</div>
+              </div>
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {validationResults.accuracy}%
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Final Accuracy</div>
+              </div>
+            </div>
+
+            {validationResults.invalidWords.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    ❌ Invalid Words ({validationResults.invalidWords.length})
+                  </h4>
+                  <span className="text-sm text-gray-500">
+                    Click and drag to scroll through all words
+                  </span>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <div className="text-sm text-red-700 dark:text-red-300 font-medium break-all">
+                    {validationResults.invalidWords.join(' • ')}
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-gray-500 text-center">
+                  Dictionary contains 370,000+ words • These words weren't found in our comprehensive English dictionary
+                </div>
+              </div>
+            )}
+
+            {validationResults.invalidWords.length === 0 && (
+              <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="text-center">
+                  <div className="text-2xl mb-2">🎉</div>
+                  <div className="text-lg font-semibold text-green-700 dark:text-green-300">
+                    Perfect! All words are valid!
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Every word you typed exists in our comprehensive English dictionary
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  console.log('🔒 User manually closed validation modal')
+                  setModalDismissed(true)
+                  setValidationResults(null)
+                }}
+                className="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+              >
+                Close & Continue
+              </button>
+              <button
+                onClick={() => {
+                  // Copy invalid words to clipboard for analysis
+                  if (validationResults.invalidWords.length > 0) {
+                    navigator.clipboard.writeText(validationResults.invalidWords.join(', '))
+                    console.log('📋 Invalid words copied to clipboard:', validationResults.invalidWords)
+                  }
+                }}
+                className="px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
+                disabled={validationResults.invalidWords.length === 0}
+              >
+                Copy Invalid Words
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isActive && !hasCompleted && !isValidating && (
         <div className="mb-3 sm:mb-4 flex justify-center gap-6 lg:gap-8">
           <div className="text-center">
             <div className="text-xl sm:text-2xl font-bold text-blue-600">{getCurrentWPM()}</div>
@@ -420,7 +627,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate }
         </button>
       </div>
 
-      {hasCompleted && (
+      {hasCompleted && !isValidating && (
         <div className="mt-3 sm:mt-4 text-center text-green-600 font-semibold text-sm sm:text-base">
           Test completed! Results have been saved.
         </div>

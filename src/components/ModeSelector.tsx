@@ -33,7 +33,7 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ currentMode, onModeChange }
       id: 'monkey' as const,
       name: 'Monkey Mode',
       icon: Zap,
-      description: 'Random sequence of short words for raw speed',
+      description: 'Type random words from comprehensive English dictionary',
       color: 'from-purple-500 to-pink-500',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20',
       iconColor: 'text-purple-600',

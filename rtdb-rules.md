@@ -22,10 +22,12 @@ The rules are designed to:
         ".read": "auth != null",
         // Room data can be written by the room creator or participants
         ".write": "auth != null && (
-          // Room creator can write
-          (data.child('players').child(auth.uid).exists()) ||
-          // New room creation
-          (!data.exists() && newData.child('players').child(auth.uid).exists())
+          // Allow new room creation
+          (!data.exists() && newData.child('players').child(auth.uid).exists()) ||
+          // Allow existing participants to write
+          (data.exists() && data.child('players').child(auth.uid).exists()) ||
+          // Allow joining a room (adding yourself as a player)
+          (data.exists() && newData.child('players').child(auth.uid).exists())
         )",
         // Players subcollection
         "players": {
@@ -39,10 +41,10 @@ The rules are designed to:
         // Other room properties (status, countdown, etc.)
         "$other": {
           ".write": "auth != null && (
-            // Room creator can modify room state
-            (data.parent().child('players').child(auth.uid).exists()) ||
+            // Room creator or participants can modify room state
+            data.parent().child('players').child(auth.uid).exists() ||
             // Allow updates for room management (e.g., starting game)
-            (newData.parent().child('players').child(auth.uid).exists())
+            newData.parent().child('players').child(auth.uid).exists()
           )"
         }
       }
@@ -58,7 +60,7 @@ The rules are designed to:
 
 1. **Rooms Collection**:
    - **Read**: All authenticated users can read room data (to join or view public rooms).
-   - **Write**: Users can only write to rooms if they are participants (players in the room) or creating a new room.
+   - **Write**: Users can write to rooms if they are creating a new room, are already participants, or are joining by adding themselves as a player.
    - This allows dynamic room creation and joining while preventing unauthorized modifications.
 
 2. **Players Subcollection**:
@@ -66,7 +68,7 @@ The rules are designed to:
    - Users can only write to their own player entry (e.g., updating ready status or scores).
 
 3. **Other Room Properties**:
-   - Room creators or participants can update room state (e.g., countdown, status).
+   - Room participants can update room state (e.g., countdown, status).
    - Prevents non-participants from altering room settings.
 
 4. **Default Rules**:
