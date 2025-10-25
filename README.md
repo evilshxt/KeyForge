@@ -1,17 +1,20 @@
 # ⚡ KeyForge — Modern Typing Speed Challenge
 
-**KeyForge** is a modern, offline-friendly typing speed app built with **React + Vite** and styled using **Tailwind CSS**.
-It helps users improve their typing speed, accuracy, and consistency across multiple challenge modes — all while storing progress and analytics locally in the browser and syncing with Firebase for authentication and real-time features.
+**KeyForge** is a modern typing speed app built with **React + Vite** and styled using **Tailwind CSS**.
+It helps users improve their typing speed, accuracy, and consistency across multiple challenge modes — with real-time multiplayer support and global leaderboards powered by Firebase.
 
-> 💡 Everything runs 100% on the client — no backend, no database, no API keys required for local features. Firebase handles authentication and optional real-time syncing.
+> 💡 **Firebase Required**: Authentication and data storage are handled by Firebase. All features require an internet connection and Firebase account.
 
 ---
 
 ## 🚀 Features
 
 ### 🧩 Core Modes
-1. **Normal Mode** — Type a random paragraph within 60 seconds.
-   - Words-per-minute (WPM) and accuracy are calculated against a fixed passage.
+1. **Normal Mode** — Type multiple random paragraphs within 60 seconds.
+   - **3-5 paragraphs** randomly selected from 30+ available texts
+   - **Sequential typing** with Enter key to advance between paragraphs
+   - **Smart completion** - finishes immediately when all text is typed (even with errors)
+   - Character-based accuracy calculation with real-time error highlighting
 2. **Free-Form Mode** — Type anything you want; accuracy is checked against a built-in dictionary.
    - Uses a lightweight English word list (optimized `.txt`) loaded lazily for performance.
 3. **Monkey Mode** — Random sequence of short words.
@@ -27,12 +30,11 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 ---
 
 ### 📊 Analytics Dashboard
-- Track historical scores, accuracy, and WPM over time.
-- LocalStorage-based charts and insights (no network requests).
+- Track historical scores, accuracy, and WPM over time in Firebase.
+- Real-time charts and insights with cloud-synced data.
 - Filter stats by mode and session date.
 - See personal bests and average performance.
 - Restart, pause, and reset test easily.
-- Optional loading spinner for free-form dictionary.
 
 ---
 
@@ -43,12 +45,25 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 
 ---
 
-### 💾 Local-Only Functionality
-- **All data stored in browser**:
-  - Test results
-  - Analytics
-  - Preferences (theme, mode, settings)
-- **No backend / API / sign-in required** for basic features (local storage fallback)
+### 🎯 Enhanced Typing Test Features
+
+#### **Multi-Paragraph Normal Tests**
+- ✅ **30+ Test Paragraphs**: Vast selection of engaging, varied content
+- ✅ **Random Combinations**: 3-5 paragraphs selected randomly for each test
+- ✅ **Sequential Advancement**: Press Enter to move between paragraphs
+- ✅ **No Text Exhaustion**: Never run out of unique content combinations
+
+#### **Smart Completion Logic**
+- ✅ **Immediate Completion**: Tests finish as soon as all text is typed (even with errors)
+- ✅ **No Timer Penalty**: WPM calculated based on actual typing time, not continued timer
+- ✅ **Real-time Stats**: Live WPM, accuracy, and error tracking
+- ✅ **Visual Progress**: Clear indicators showing current paragraph and completion status
+
+#### **Enhanced Error Handling**
+- ✅ **Comprehensive Debugging**: Detailed console logs for all operations
+- ✅ **Toast Notifications**: Success and error feedback for all actions
+- ✅ **Firebase Sync**: Automatic saving with verification and error recovery
+- ✅ **Robust Validation**: Input validation and graceful error recovery
 
 ---
 
@@ -60,7 +75,7 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 | 💨 **Tailwind CSS** | Styling and responsive layout |
 | 🔥 **Firebase** | Authentication, Firestore, Realtime Database |
 | 🧠 **JavaScript (ES2025)** | Core typing logic and analytics |
-| 📦 **LocalStorage API** | Persistent data & settings |
+| 📦 **Firebase Firestore** | Cloud database for scores and user data |
 | 📜 **words.txt** | Offline English dictionary for free-form mode |
 
 ---
@@ -70,26 +85,30 @@ It helps users improve their typing speed, accuracy, and consistency across mult
 ```
 KeyForge/
 ├── public/
-│   ├── data/
-│   │   └── words.txt            # Local dictionary (trimmed word list)
-│   └── favicon.ico
+│   └── data/
+│       └── words.txt            # Dictionary for free-form mode
 ├── src/
 │   ├── components/
-│   │   ├── ModeSelector.jsx     # Select between modes
-│   │   ├── TypingBox.jsx        # Typing input area and word highlighting
-│   │   ├── StatsDisplay.jsx     # Post-test stats & analytics summary
-│   │   ├── AnalyticsPanel.jsx   # Charts using stored local data
-│   │   ├── ThemeToggle.jsx      # Dark/light mode toggle
-│   │   └── Login.jsx            # Authentication page
+│   │   ├── Login.tsx            # Firebase authentication
+│   │   ├── ModeSelector.tsx     # Mode selection interface
+│   │   ├── TypingBox.tsx        # Main typing interface
+│   │   ├── TestPage.tsx         # Test page with live stats
+│   │   ├── AnalyticsPanel.tsx   # Firebase-synced analytics
+│   │   ├── Leaderboard.tsx      # Global rankings
+│   │   ├── MultiplayerRoom.tsx  # Real-time multiplayer
+│   │   └── StatsDisplay.tsx     # Results display
 │   ├── contexts/
-│   │   └── AuthContext.jsx      # Firebase auth context
-│   ├── firebase.js              # Firebase config and services
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-├── .env                         # Firebase environment variables
-├── package.json
-└── README.md
+│   │   └── AuthContext.tsx      # Firebase auth context
+│   ├── utils/
+│   │   ├── accuracy.ts          # WPM and accuracy calculations
+│   │   └── textSources.ts       # Text generation utilities
+│   ├── firebase.ts              # Firebase configuration
+│   ├── App.tsx                  # Main application
+│   └── main.tsx
+├── firestore-rules.md           # Firestore security rules
+├── rtdb-rules.md               # Realtime Database rules
+├── schema.md                   # Database schema documentation
+└── .env                        # Firebase environment variables
 ```
 
 ---
@@ -100,10 +119,10 @@ KeyForge/
 |------------|-------------|
 | **Lazy Loading** | The English dictionary (`words.txt`) is fetched only when Free-Form Mode is selected. |
 | **Set() Lookup Optimization** | Dictionary words are stored in a JavaScript `Set` for O(1) lookups. |
-| **Local Analytics Engine** | Aggregates and stores scores, accuracy, and WPM in localStorage. |
+| **Cloud Analytics Engine** | Aggregates and stores scores, accuracy, and WPM in Firebase Firestore. |
 | **Firebase Integration** | Handles authentication and real-time syncing without external servers. |
-| **Debounced Input Parsing** | Improves performance for real-time character comparison. |
-| **Dynamic Rendering** | Components re-render smoothly on mode or theme change. |
+| **Adjusted WPM Calculation** | WPM scores are adjusted based on accuracy for fairer competition. |
+| **Real-time Multiplayer** | Firebase Realtime Database enables live typing races with other players. |
 
 ---
 
@@ -148,32 +167,51 @@ npm run preview
 
 ---
 
-## 🧩 LocalStorage Schema
+## 🔥 Firebase Integration
 
-| Key                  | Type   | Description                                                    |
-| -------------------- | ------ | -------------------------------------------------------------- |
-| `keyforge:scores`    | Array  | Stores all past test sessions (mode, WPM, accuracy, timestamp) |
-| `keyforge:theme`     | String | `"light"` or `"dark"`                                          |
-| `keyforge:settings`  | Object | Stores app preferences                                         |
-| `keyforge:analytics` | Object | Precomputed aggregates for charts                              |
+- **Authentication**: Users must log in to access the app via Firebase Auth.
+- **Firestore Database**: Stores user profiles, test scores, and analytics in the cloud.
+- **Realtime Database**: Enables real-time multiplayer typing challenges and live leaderboards.
+- **Security Rules**: Comprehensive Firestore and RTDB rules ensure data security and user privacy.
 
 ---
 
-## 🔥 Firebase Integration
+## 🗂️ Firebase Database Schema
 
-- **Authentication**: Users must log in to access the app.
-- **Firestore**: For storing user profiles and advanced analytics.
-- **Realtime Database**: For real-time multiplayer typing challenges.
+| Collection | Purpose | Key Fields |
+|------------|---------|------------|
+| `users` | User profiles and stats | `bestWPM`, `totalTests`, `averageWPM`, `accuracy`, `streak`, `longestStreak` |
+| `scores` | Individual test results | `userId`, `wpm` (adjusted), `rawWpm`, `accuracy`, `mode`, `date` |
+
+**Analytics Features:**
+- ✅ Real-time Firebase-synced user statistics
+- ✅ Weekly WPM progress charts using adjusted WPM scores
+- ✅ Accuracy breakdown and week-over-week progress
+- ✅ Streak tracking (current and longest streaks) synced with Firebase
+- ✅ Achievement badges based on performance
+- ✅ Global leaderboard with real-time updates
+
+**Required Firestore Indexes:**
+- `users` collection: `bestWPM` (descending)
+- `scores` collection: `userId` + `date` (descending), `mode` + `wpm` (descending)
+
+**Responsive Design:**
+- ✅ Mobile-first responsive navbar with hamburger menu
+- ✅ No horizontal scroll on any screen size
+- ✅ Adaptive layouts for mobile, tablet, and desktop
+- ✅ Touch-friendly buttons and interactions
+- ✅ Optimized typography and spacing for all devices
 
 ---
 
 ## 🧰 Future Enhancements
 
-* Multiplayer typing races (WebSocket version)
-* Offline-first PWA support
-* Advanced analytics (streaks, typing consistency graphs)
-* Custom paragraph imports
-* Sound effects & background music
+* Enhanced multiplayer features (private rooms, tournaments)
+* Advanced analytics (typing heatmaps, consistency metrics)
+* Custom paragraph imports and text generation
+* Sound effects & haptic feedback
+* Mobile app versions (iOS/Android)
+* Team competitions and challenges
 
 ---
 

@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         photoURL: user.photoURL || null,
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
+        lastActivityDate: null,
         totalTests: 0,
         totalTime: 0,
         bestWPM: 0,
@@ -66,12 +67,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password)
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (error: any) {
+      console.error('Login error:', error)
+      let errorMessage = 'Invalid credentials'
+
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address'
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password'
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address'
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled'
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Please try again later'
+      }
+
+      throw new Error(errorMessage)
+    }
   }
 
   const signup = async (email: string, password: string) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-    await createOrUpdateUserProfile(userCredential.user)
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      await createOrUpdateUserProfile(userCredential.user)
+    } catch (error: any) {
+      console.error('Signup error:', error)
+      let errorMessage = 'Failed to create account'
+
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists'
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address'
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Email/password accounts are not enabled. Please contact support'
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please choose a stronger password'
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection and try again'
+      }
+
+      throw new Error(errorMessage)
+    }
   }
 
   const logout = async () => {

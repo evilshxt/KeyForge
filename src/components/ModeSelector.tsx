@@ -42,23 +42,23 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ currentMode, onModeChange }
   ]
 
   return (
-    <div className="mb-8">
+    <div className="mb-4 sm:mb-6 lg:mb-8">
       <motion.h2
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+        className="text-xl sm:text-2xl lg:text-3xl font-bold text-center mb-4 sm:mb-6 lg:mb-8 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
       >
         Choose Your Challenge
       </motion.h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 max-w-4xl lg:max-w-5xl mx-auto">
         {modes.map((mode, index) => (
           <motion.div
             key={mode.id}
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`relative p-6 rounded-2xl border-2 transition-all cursor-pointer ${
+            className={`relative p-3 sm:p-4 lg:p-6 rounded-2xl border-2 transition-all cursor-pointer ${
               currentMode === mode.id
                 ? `border-transparent bg-gradient-to-br ${mode.color} text-white shadow-lg`
                 : `${mode.bgColor} border-slate-200 dark:border-slate-700 ${mode.hoverColor} hover:shadow-md`
@@ -67,24 +67,24 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ currentMode, onModeChange }
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <div className="flex flex-col items-center text-center space-y-4">
+            <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3 lg:space-y-4">
               <motion.div
-                className={`p-3 rounded-full ${
+                className={`p-1.5 sm:p-2 lg:p-3 rounded-full ${
                   currentMode === mode.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'
                 }`}
                 animate={{ rotate: currentMode === mode.id ? [0, 5, -5, 0] : 0 }}
                 transition={{ duration: 2, repeat: currentMode === mode.id ? Infinity : 0 }}
               >
-                <mode.icon className={`w-8 h-8 ${currentMode === mode.id ? 'text-white' : mode.iconColor}`} />
+                <mode.icon className={`w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 ${currentMode === mode.id ? 'text-white' : mode.iconColor}`} />
               </motion.div>
 
               <div>
-                <h3 className={`text-xl font-semibold mb-2 ${
+                <h3 className={`text-base sm:text-lg lg:text-xl font-semibold mb-1 lg:mb-2 ${
                   currentMode === mode.id ? 'text-white' : 'text-gray-900 dark:text-white'
                 }`}>
                   {mode.name}
                 </h3>
-                <p className={`text-sm ${
+                <p className={`text-xs sm:text-sm leading-relaxed ${
                   currentMode === mode.id ? 'text-white/80' : 'text-gray-600 dark:text-gray-400'
                 }`}>
                   {mode.description}
@@ -95,9 +95,9 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ currentMode, onModeChange }
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center"
+                  className="absolute -top-1 -right-1 lg:-top-2 lg:-right-2 w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-white rounded-full flex items-center justify-center"
                 >
-                  <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 lg:w-3 lg:h-3 bg-blue-600 rounded-full"></div>
                 </motion.div>
               )}
             </div>

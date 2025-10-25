@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import { auth } from '../firebase'
 import { Zap, Mail, Lock, ShieldCheck, Rocket, Users, Trophy, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useToast } from './Toast'
 
 const Login: React.FC = () => {
   const [isSignup, setIsSignup] = useState(false)
@@ -13,6 +15,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [activeFeature, setActiveFeature] = useState(0)
   const { login, signup } = useAuth()
+  const { showToast } = useToast()
 
   const features = [
     { icon: Trophy, text: 'Compete globally', color: 'text-yellow-400' },
@@ -45,11 +48,15 @@ const Login: React.FC = () => {
     try {
       if (isSignup) {
         await signup(formData.email, formData.password)
+        showToast('Account created successfully! Welcome to KeyForge!', 'success')
       } else {
         await login(formData.email, formData.password)
+        showToast('Welcome back! Ready to type?', 'success')
       }
-    } catch (err) {
-      setError(isSignup ? 'Failed to create account' : 'Invalid credentials')
+    } catch (err: any) {
+      const errorMessage = err.message || 'Authentication failed'
+      setError(errorMessage)
+      showToast(errorMessage, 'error')
     } finally {
       setLoading(false)
     }
@@ -60,9 +67,44 @@ const Login: React.FC = () => {
     setLoading(true)
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(useAuth().auth, provider)
-    } catch (err) {
-      setError('Failed to sign in with Google')
+      // Add custom parameters for better UX
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
+
+      const result = await signInWithPopup(auth, provider)
+      const user = result.user
+
+      showToast(`Welcome ${user.displayName || user.email}!`, 'success')
+    } catch (err: any) {
+      console.error('Google sign-in error:', err)
+
+      let errorMessage = 'Failed to sign in with Google'
+
+      if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign-in cancelled'
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Popup blocked. Please allow popups for this site'
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'Account exists with different sign-in method'
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Google sign-in not enabled. Please contact support'
+      } else if (err.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid credentials. Please try again'
+      } else if (err.code === 'auth/user-disabled') {
+        errorMessage = 'This Google account has been disabled'
+      } else if (err.code === 'auth/timeout') {
+        errorMessage = 'Sign-in timed out. Please try again'
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection'
+      } else if (err.code === 'auth/web-storage-unsupported') {
+        errorMessage = 'Web storage not supported. Please enable cookies'
+      } else if (err.code === 'auth/unauthorized-domain') {
+        errorMessage = 'Unauthorized domain. Check Firebase auth domain settings'
+      }
+
+      setError(errorMessage)
+      showToast(errorMessage, 'error')
     } finally {
       setLoading(false)
     }

@@ -17,7 +17,6 @@ import { Bar, Doughnut } from 'react-chartjs-2'
 import { doc, getDoc, collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
-import { getStreakData } from '../utils/streak'
 // Define interface for score data
 interface ScoreData {
   id: string
@@ -79,9 +78,7 @@ const AnalyticsPanel: React.FC = () => {
 
   // Load streak data on mount
   useEffect(() => {
-    const streakData = getStreakData()
-    setStreak(streakData.currentStreak)
-    setLongestStreak(streakData.longestStreak)
+    // Streak data is now loaded from Firebase in fetchUserStats
   }, [])
 
   useEffect(() => {
@@ -102,6 +99,8 @@ const AnalyticsPanel: React.FC = () => {
             totalTime: data.totalTime || 0,
             accuracy: data.accuracy || 0
           })
+          setStreak(data.streak || 0)
+          setLongestStreak(data.longestStreak || data.streak || 0)
         }
 
         const sevenDaysAgo = new Date()
@@ -172,9 +171,7 @@ const AnalyticsPanel: React.FC = () => {
         // Force chart re-render
         setChartKey(prev => prev + 1)
 
-        // Get streak data from localStorage
-        const streakData = getStreakData()
-        setStreak(streakData.currentStreak)
+        // Streak data is already loaded from Firebase above
       } catch (error) {
         console.error('Error fetching user stats:', error)
       }
@@ -211,13 +208,28 @@ const AnalyticsPanel: React.FC = () => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', bodyColor: '#fff' }
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        cornerRadius: 8,
+        displayColors: false,
+        titleFont: { size: 12 },
+        bodyFont: { size: 11 }
+      }
     },
     scales: {
-      y: { grid: { color: 'rgba(71, 85, 105, 0.3)' }, ticks: { color: '#94a3b8' } },
-      x: { grid: { color: 'rgba(71, 85, 105, 0.3)' }, ticks: { color: '#94a3b8' } }
+      y: {
+        grid: { color: 'rgba(71, 85, 105, 0.3)' },
+        ticks: { color: '#94a3b8', font: { size: 10 } }
+      },
+      x: {
+        grid: { color: 'rgba(71, 85, 105, 0.3)' },
+        ticks: { color: '#94a3b8', font: { size: 10 } }
+      }
     }
   }
 
@@ -226,7 +238,7 @@ const AnalyticsPanel: React.FC = () => {
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
-      className="mt-8 p-8 bg-gradient-to-br from-slate-900/90 to-blue-900/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl relative overflow-hidden"
+      className="mt-4 sm:mt-6 lg:mt-8 p-3 sm:p-4 lg:p-6 bg-gradient-to-br from-slate-900/90 to-blue-900/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl relative overflow-hidden"
     >
       {/* Enhanced animated background */}
       <motion.div
@@ -237,94 +249,96 @@ const AnalyticsPanel: React.FC = () => {
 
       <div className="relative z-10">
         <motion.div
-          className="flex items-center gap-3 mb-8"
+          className="flex items-center gap-2 lg:gap-3 mb-4 sm:mb-6 lg:mb-8"
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
         >
           <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 4, repeat: Infinity }}>
-            <BarChart3 className="w-8 h-8 text-blue-400" />
+            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-blue-400" />
           </motion.div>
-          <h2 className="text-3xl font-bold text-white">Your Typing Dashboard</h2>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Your Typing Dashboard</h2>
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4 mb-6 sm:mb-8">
           <motion.div
-            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 text-center relative overflow-hidden"
+            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 sm:p-3 lg:p-4 text-center relative overflow-hidden"
             whileHover={{ scale: 1.05, borderColor: 'rgb(59 130 246)' }}
           >
             <motion.div className="absolute inset-0 bg-blue-500/10 opacity-0 hover:opacity-100 transition-opacity" />
-            <Users className="w-6 h-6 text-blue-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-white relative z-10">{stats.totalTests}</div>
-            <div className="text-sm text-slate-400 relative z-10">Total Tests</div>
+            <Users className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-400 mx-auto mb-1 sm:mb-2 relative z-10" />
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white relative z-10">{stats.totalTests}</div>
+            <div className="text-xs lg:text-sm text-slate-400 relative z-10">Total Tests</div>
           </motion.div>
 
           <motion.div
-            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 text-center relative overflow-hidden"
+            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 sm:p-3 lg:p-4 text-center relative overflow-hidden"
             whileHover={{ scale: 1.05, borderColor: 'rgb(34 197 94)' }}
           >
             <motion.div className="absolute inset-0 bg-green-500/10 opacity-0 hover:opacity-100 transition-opacity" />
-            <TrendingUp className="w-6 h-6 text-green-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-white relative z-10">{stats.averageWPM}</div>
-            <div className="text-sm text-slate-400 relative z-10">Avg WPM</div>
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-400 mx-auto mb-1 sm:mb-2 relative z-10" />
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white relative z-10">{stats.averageWPM}</div>
+            <div className="text-xs lg:text-sm text-slate-400 relative z-10">Avg WPM</div>
           </motion.div>
 
           <motion.div
-            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 text-center relative overflow-hidden"
+            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 sm:p-3 lg:p-4 text-center relative overflow-hidden"
             whileHover={{ scale: 1.05, borderColor: 'rgb(251 191 36)' }}
           >
             <motion.div className="absolute inset-0 bg-yellow-500/10 opacity-0 hover:opacity-100 transition-opacity" />
-            <Award className="w-6 h-6 text-yellow-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-white relative z-10">{stats.bestWPM}</div>
-            <div className="text-sm text-slate-400 relative z-10">Best WPM</div>
+            <Award className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-yellow-400 mx-auto mb-1 sm:mb-2 relative z-10" />
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white relative z-10">{stats.bestWPM}</div>
+            <div className="text-xs lg:text-sm text-slate-400 relative z-10">Best WPM</div>
           </motion.div>
 
           <motion.div
-            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 text-center relative overflow-hidden"
+            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 sm:p-3 lg:p-4 text-center relative overflow-hidden"
             whileHover={{ scale: 1.05, borderColor: 'rgb(168 85 247)' }}
           >
             <motion.div className="absolute inset-0 bg-purple-500/10 opacity-0 hover:opacity-100 transition-opacity" />
-            <Clock className="w-6 h-6 text-purple-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-white relative z-10">{Math.floor(stats.totalTime / 60)}m</div>
-            <div className="text-sm text-slate-400 relative z-10">Total Time</div>
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-purple-400 mx-auto mb-1 sm:mb-2 relative z-10" />
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white relative z-10">{Math.floor(stats.totalTime / 60)}m</div>
+            <div className="text-xs lg:text-sm text-slate-400 relative z-10">Total Time</div>
           </motion.div>
 
           <motion.div
-            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 text-center relative overflow-hidden"
+            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 sm:p-3 lg:p-4 text-center relative overflow-hidden"
             whileHover={{ scale: 1.05, borderColor: 'rgb(239 68 68)' }}
           >
             <motion.div className="absolute inset-0 bg-red-500/10 opacity-0 hover:opacity-100 transition-opacity" />
-            <Target className="w-6 h-6 text-red-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-white relative z-10">{stats.accuracy}%</div>
-            <div className="text-sm text-slate-400 relative z-10">Accuracy</div>
+            <Target className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-red-400 mx-auto mb-1 sm:mb-2 relative z-10" />
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white relative z-10">{stats.accuracy}%</div>
+            <div className="text-xs lg:text-sm text-slate-400 relative z-10">Accuracy</div>
           </motion.div>
 
           <motion.div
-            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 text-center relative overflow-hidden"
+            className="stat-card bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 sm:p-3 lg:p-4 text-center relative overflow-hidden"
             whileHover={{ scale: 1.05, borderColor: 'rgb(14 165 233)' }}
           >
             <motion.div className="absolute inset-0 bg-cyan-500/10 opacity-0 hover:opacity-100 transition-opacity" animate={controls} />
-            <Flame className="w-6 h-6 text-cyan-400 mx-auto mb-2 relative z-10" />
-            <div className="text-2xl font-bold text-cyan-400 relative z-10">{streak}</div>
-            <div className="text-sm text-slate-400 relative z-10">Day Streak</div>
+            <Flame className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-cyan-400 mx-auto mb-1 sm:mb-2 relative z-10" />
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-cyan-400 relative z-10">{streak}</div>
+            <div className="text-xs lg:text-sm text-slate-400 relative z-10">Day Streak</div>
           </motion.div>
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
           {/* Weekly WPM Chart */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 rounded-xl p-6"
+            className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 rounded-xl p-3 sm:p-4 lg:p-6"
           >
-            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-400" />
+            <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-white mb-2 sm:mb-3 lg:mb-4 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               Weekly WPM Progress
             </h3>
-            <Bar key={chartKey} data={weeklyData} options={options} />
+            <div className="h-40 sm:h-48 lg:h-64">
+              <Bar key={chartKey} data={weeklyData} options={{ ...options, maintainAspectRatio: false }} />
+            </div>
           </motion.div>
 
           {/* Accuracy Doughnut */}
@@ -332,13 +346,13 @@ const AnalyticsPanel: React.FC = () => {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 rounded-xl p-6"
+            className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 rounded-xl p-3 sm:p-4 lg:p-6"
           >
-            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <Target className="w-5 h-5 text-green-400" />
+            <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-white mb-2 sm:mb-3 lg:mb-4 flex items-center gap-2">
+              <Target className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
               Accuracy Breakdown
             </h3>
-            <div className="h-48">
+            <div className="h-40 sm:h-48 lg:h-64">
               <Doughnut data={accuracyData} options={{ ...options, maintainAspectRatio: false }} />
             </div>
           </motion.div>
@@ -349,13 +363,15 @@ const AnalyticsPanel: React.FC = () => {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
-          className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 rounded-xl p-6 mb-8"
+          className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 rounded-xl p-3 sm:p-4 lg:p-6 mb-4 sm:mb-6 lg:mb-8"
         >
-          <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-purple-400" />
+          <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-white mb-2 sm:mb-3 lg:mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
             Week-over-Week Progress
           </h3>
-          <Bar data={progressData} options={options} />
+          <div className="h-40 sm:h-48 lg:h-64">
+            <Bar data={progressData} options={{ ...options, maintainAspectRatio: false }} />
+          </div>
         </motion.div>
 
         {/* Achievements */}
@@ -363,29 +379,29 @@ const AnalyticsPanel: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4"
         >
-          <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border border-yellow-500/30 rounded-xl p-4 flex items-center gap-3">
-            <Star className="w-8 h-8 text-yellow-400" />
-            <div>
-              <div className="text-yellow-400 font-semibold">Speed Demon</div>
-              <div className="text-slate-300 text-sm">Best WPM: {stats.bestWPM}</div>
+          <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border border-yellow-500/30 rounded-xl p-2 sm:p-3 lg:p-4 flex items-center gap-2 sm:gap-3">
+            <Star className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-yellow-400 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-yellow-400 font-semibold text-xs sm:text-sm lg:text-base">Speed Demon</div>
+              <div className="text-slate-300 text-xs lg:text-sm truncate">Best WPM: {stats.bestWPM}</div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4 flex items-center gap-3">
-            <Zap className="w-8 h-8 text-green-400" />
-            <div>
-              <div className="text-green-400 font-semibold">Accuracy Master</div>
-              <div className="text-slate-300 text-sm">{stats.accuracy}% Accuracy</div>
+          <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-2 sm:p-3 lg:p-4 flex items-center gap-2 sm:gap-3">
+            <Zap className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-green-400 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-green-400 font-semibold text-xs sm:text-sm lg:text-base">Accuracy Master</div>
+              <div className="text-slate-300 text-xs lg:text-sm truncate">{stats.accuracy}% Accuracy</div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-4 flex items-center gap-3">
-            <Flame className="w-8 h-8 text-blue-400" />
-            <div>
-              <div className="text-blue-400 font-semibold">Consistent Typist</div>
-              <div className="text-slate-300 text-sm">{streak} Day Streak (Best: {longestStreak})</div>
+          <div className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-2 sm:p-3 lg:p-4 flex items-center gap-2 sm:gap-3 sm:col-span-2 lg:col-span-1">
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-blue-400 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-blue-400 font-semibold text-xs sm:text-sm lg:text-base">Consistent Typist</div>
+              <div className="text-slate-300 text-xs lg:text-sm truncate">{streak} Day Streak (Best: {longestStreak})</div>
             </div>
           </div>
         </motion.div>
@@ -395,9 +411,9 @@ const AnalyticsPanel: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
-          className="mt-6 p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl"
+          className="mt-3 sm:mt-4 lg:mt-6 p-2 sm:p-3 lg:p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl"
         >
-          <p className="text-center text-slate-200">
+          <p className="text-center text-slate-200 text-xs sm:text-sm lg:text-base">
             🚀 {stats.bestWPM > 60 ? 'You\'re a typing legend!' : 'Keep practicing to reach your peak!'}
           </p>
         </motion.div>

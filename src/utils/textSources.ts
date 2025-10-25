@@ -18,7 +18,17 @@ const normalTexts = [
   "In the year 2147, humanity had colonized Mars, but the red planet held secrets that challenged everything scientists thought they knew about the solar system and the origins of life itself.",
   "Sarah's coffee shop was more than just a place for caffeine; it was a community hub where neighbors shared dreams, solved problems, and formed lasting friendships over steaming mugs and fresh pastries.",
   "The detective followed a trail of clues through the city's underground tunnels, racing against time to prevent a catastrophe that could level half the metropolis and change the world forever.",
-  "When the village elder passed away, she left behind a chest of letters that revealed family secrets spanning three generations, bringing healing and understanding to a family that had been divided for decades."
+  "When the village elder passed away, she left behind a chest of letters that revealed family secrets spanning three generations, bringing healing and understanding to a family that had been divided for decades.",
+  "The nomadic tribe traversed vast deserts, their camels carrying precious spices and silks across ancient trade routes. Each journey tested their endurance, but also deepened their connection to the land and its timeless rhythms.",
+  "Deep in the laboratory, geneticist Dr. Lena Chen made a breakthrough that could cure hereditary diseases. But as she delved deeper into her research, she discovered ethical boundaries that challenged the very definition of what it means to be human.",
+  "The symphony conductor raised her baton, and the orchestra responded with perfect harmony. Each musician contributed their unique voice, creating a masterpiece that transcended individual talent and became something greater than the sum of its parts.",
+  "In the quiet hours before dawn, the baker kneaded dough with practiced hands, infusing each loaf with care and tradition. Her bread fed not just bodies, but also the souls of those who appreciated the simple beauty of well-crafted food.",
+  "The archaeologist carefully brushed away centuries of dust from the ancient artifact. What emerged was not just an object, but a window into a civilization that had shaped the course of human history in ways we are only beginning to understand.",
+  "As the storm raged outside, the family gathered around the fireplace sharing stories of their ancestors. These tales, passed down through generations, served as both entertainment and life lessons, binding them together through shared heritage.",
+  "The young entrepreneur poured her savings into a dream that many called foolish. But her innovative approach to sustainable fashion caught the attention of investors, proving that sometimes the greatest risks lead to the most rewarding successes.",
+  "High atop the mountain peak, the climber paused to catch her breath and admire the view. The journey had been grueling, but reaching the summit taught her that true accomplishment comes not from the destination, but from the strength discovered along the way.",
+  "The librarian's fingers danced across the keyboard, digitizing rare manuscripts that had been hidden for centuries. Her work preserved knowledge that might otherwise have been lost forever, ensuring that future generations could learn from the wisdom of the past.",
+  "In the bustling marketplace, merchants haggled over prices while customers searched for the perfect ingredients. This daily ritual of commerce created not just economic transactions, but also social connections that wove the fabric of community life."
 ]
 
 const monkeyWords = [
@@ -28,7 +38,22 @@ const monkeyWords = [
 export const getTextForMode = (mode: 'normal' | 'freeform' | 'monkey'): string => {
   switch (mode) {
     case 'normal':
-      return normalTexts[Math.floor(Math.random() * normalTexts.length)]
+      // Select 3-5 random paragraphs for a longer typing experience
+      const numParagraphs = Math.floor(Math.random() * 3) + 3 // 3-5 paragraphs
+      const selectedParagraphs: string[] = []
+      const usedIndices = new Set<number>()
+
+      for (let i = 0; i < numParagraphs; i++) {
+        let randomIndex: number
+        do {
+          randomIndex = Math.floor(Math.random() * normalTexts.length)
+        } while (usedIndices.has(randomIndex))
+
+        usedIndices.add(randomIndex)
+        selectedParagraphs.push(normalTexts[randomIndex])
+      }
+
+      return selectedParagraphs.join('\n\n') // Double newline for paragraph separation
     case 'freeform':
       return "Type anything you want here. The system will check against a dictionary for accuracy."
     case 'monkey':
