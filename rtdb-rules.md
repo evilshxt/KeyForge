@@ -27,7 +27,9 @@ The rules are designed to:
           // Allow existing participants to write
           (data.exists() && data.child('players').child(auth.uid).exists()) ||
           // Allow joining a room (adding yourself as a player)
-          (data.exists() && newData.child('players').child(auth.uid).exists())
+          (data.exists() && newData.child('players').child(auth.uid).exists()) ||
+          // Allow player stat updates (WPM, accuracy, completed, ready)
+          (data.exists() && data.child('players').child(auth.uid).exists() && newData.child('players').child(auth.uid).exists())
         )",
         // Players subcollection
         "players": {

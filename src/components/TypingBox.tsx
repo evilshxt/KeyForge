@@ -48,6 +48,8 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, 
         if (mode === 'normal' && paragraphIndices && paragraphIndices.length > 0) {
           newText = getParagraphsByIndices(paragraphIndices)
           console.log('📝 Using multiplayer paragraph indices:', paragraphIndices)
+          console.log('📝 Loaded multiplayer text:', newText)
+          console.log('📝 Text length:', newText.length)
         } else {
           newText = await getTextForMode(mode)
         }
@@ -92,8 +94,16 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, 
         setTimeLeft((prev) => {
           if (prev <= 1) {
             console.log('⏰ Time\'s up! Completing test...')
+            console.log('⏰ Mode:', mode, 'hasCompleted:', hasCompleted)
             setIsActive(false)
             setHasCompleted(true)
+
+            // Complete the test based on mode
+            if (mode === 'freeform') {
+              handleFreeformCompletion()
+            } else {
+              handleTestCompletion()
+            }
             return 0
           }
           return prev - 1
@@ -124,6 +134,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, 
 
       console.log('📈 Freeform final stats:', { rawWpm, adjustedWpm, accuracy: results.accuracy, timeLeft })
 
+      console.log('📞 Freeform calling onComplete with stats:', { wpm: adjustedWpm, accuracy: results.accuracy, timeLeft, rawWpm })
       onComplete({
         wpm: adjustedWpm,
         accuracy: results.accuracy,
@@ -175,6 +186,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, 
 
       console.log('📈 Final stats:', { rawWpm, adjustedWpm, accuracy, timeLeft })
 
+      console.log('📞 Calling onComplete with stats:', { wpm: adjustedWpm, accuracy, timeLeft, rawWpm })
       onComplete({
         wpm: adjustedWpm,
         accuracy,
@@ -210,10 +222,35 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, 
       console.log('📊 Completion check:', {
         textFullyTyped,
         timeUp,
+        userInputLength: userInput.length,
+        textLength: text.length,
         currentParagraph: currentParagraphIndex + 1,
         totalParagraphs: paragraphs.length,
-        completedParagraphs
+        completedParagraphs,
+        mode
       })
+
+      // For normal mode, also check if user has typed a significant portion (90%) of the current paragraph
+      if (mode === 'normal' && !textFullyTyped && !timeUp) {
+        const progressPercentage = (userInput.length / text.length) * 100
+        console.log('📈 Normal mode progress:', progressPercentage + '%')
+        // If user has typed 90% of the paragraph and seems stuck, consider it complete
+        if (progressPercentage >= 90 && userInput.length > 20) {
+          console.log('🎯 Normal mode: 90% complete threshold reached')
+          return true
+        }
+        // If user has typed 70% and hasn't typed for a while, consider it complete
+        if (progressPercentage >= 70 && userInput.length > 10) {
+          console.log('🎯 Normal mode: 70% complete threshold reached')
+          return true
+        }
+      }
+
+      // Also complete if time is up, regardless of typing progress
+      if (timeUp) {
+        console.log('⏰ Time is up, completing test')
+        return true
+      }
 
       return textFullyTyped || timeUp
     }
@@ -227,6 +264,7 @@ const TypingBox: React.FC<TypingBoxProps> = ({ mode, onComplete, onStatsUpdate, 
         handleFreeformCompletion()
       } else {
         // For normal and monkey modes, complete immediately
+        console.log('⚡ Normal/Monkey mode: Completing immediately')
         setHasCompleted(true)
         handleTestCompletion()
       }

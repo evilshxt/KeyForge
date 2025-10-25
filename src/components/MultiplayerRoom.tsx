@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { ref, set, onValue, off, update, remove, child } from 'firebase/database'
+import { ref, set, onValue, off, update, remove } from 'firebase/database'
 import { rtdb } from '../firebase'
 import { motion } from 'framer-motion'
 import { Users, ArrowRight, Trophy, Zap, Hash, Crown, Play, CheckCircle, XCircle, Timer, FileText, PenTool, Copy, Check } from 'lucide-react'
@@ -13,6 +13,8 @@ interface Player {
   wpm?: number
   accuracy?: number
   completed: boolean
+  disconnected?: boolean
+  disconnectedAt?: number
 }
 
 interface RoomData {
@@ -32,7 +34,6 @@ const MultiplayerRoom: React.FC = () => {
   const [roomData, setRoomData] = useState<RoomData | null>(null)
   const [playerName, setPlayerName] = useState('')
   const [roomCode, setRoomCode] = useState('')
-  const [isHost, setIsHost] = useState(false)
   const [isReady, setIsReady] = useState(false)
   const [selectedMode, setSelectedMode] = useState<'normal' | 'freeform'>('normal')
   const [copied, setCopied] = useState(false)
@@ -43,12 +44,12 @@ const MultiplayerRoom: React.FC = () => {
     }
     return () => {
       // Cleanup listeners on unmount
-      if (roomData) {
-        const roomRef = ref(rtdb, `rooms/${roomData.roomId}`)
+      if (roomCode) {
+        const roomRef = ref(rtdb, `rooms/${roomCode}`)
         off(roomRef)
       }
     }
-  }, [currentUser, roomData])
+  }, [currentUser, roomCode])
 
   const generateRoomCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -81,18 +82,22 @@ const MultiplayerRoom: React.FC = () => {
         countdown: 0,
         mode: selectedMode,
         createdAt: Date.now(),
-        // For normal mode, we'll generate paragraph indices when the game starts
-        paragraphIndices: selectedMode === 'normal' ? [] : undefined
+        // Only set paragraphIndices for normal mode
+        ...(selectedMode === 'normal' && { paragraphIndices: [] })
       }
       await set(roomRef, roomData)
       setRoomData(roomData)
-      setIsHost(true)
       setRoomCode(code)
+
+      // Clean up any existing listeners first
+      off(roomRef)
 
       // Listen for changes
       onValue(roomRef, (snapshot) => {
-        const data = snapshot.val()
+        const data = snapshot.val() as RoomData
         if (data) {
+          console.log('📡 Room data updated:', data)
+          console.log('📊 Active players:', Object.values(data.players).filter((p: any) => !p.disconnected))
           setRoomData(data)
         }
       })
@@ -110,17 +115,24 @@ const MultiplayerRoom: React.FC = () => {
       const snapshot = await new Promise<any>((resolve) => {
         onValue(roomRef, (snapshot) => resolve(snapshot), { onlyOnce: true })
       })
-      const data = snapshot.val()
+      const data = snapshot.val() as RoomData
       if (data) {
         const updatedPlayers = { ...data.players, [currentUser.uid]: { uid: currentUser.uid, name: playerName, ready: false, completed: false } }
         await update(roomRef, { players: updatedPlayers })
+
+        // Set room data immediately without waiting for listener
         setRoomData({ ...data, players: updatedPlayers })
-        setIsHost(false)
+        setRoomCode(roomCode)
+
+        // Clean up any existing listeners first
+        off(roomRef)
 
         // Listen for changes
         onValue(roomRef, (snapshot) => {
-          const updatedData = snapshot.val()
+          const updatedData = snapshot.val() as RoomData
           if (updatedData) {
+            console.log('📡 Room data updated:', updatedData)
+            console.log('📊 Active players:', Object.values(updatedData.players).filter((p: any) => !p.disconnected))
             setRoomData(updatedData)
           }
         })
@@ -138,12 +150,15 @@ const MultiplayerRoom: React.FC = () => {
 
     try {
       const roomRef = ref(rtdb, `rooms/${roomData.roomId}`)
+      console.log('🔄 Toggling ready state for user:', currentUser.uid, 'from', isReady, 'to', !isReady)
       await update(roomRef, {
         [`players/${currentUser.uid}/ready`]: !isReady
       })
+      console.log('✅ Successfully updated ready state in Firebase')
       setIsReady(!isReady)
+      console.log('✅ Updated local ready state')
     } catch (error) {
-      console.error('Error toggling ready:', error)
+      console.error('❌ Error toggling ready:', error)
     }
   }
 
@@ -168,8 +183,10 @@ const MultiplayerRoom: React.FC = () => {
         indices.push(index)
       }
       updateData.paragraphIndices = indices
+      console.log('🎲 Generated paragraph indices:', indices)
     }
 
+    console.log('🔄 Starting game with update data:', updateData)
     update(roomRef, updateData).catch(console.error)
 
     // Countdown logic (client-side for UI, but synced via DB)
@@ -186,24 +203,34 @@ const MultiplayerRoom: React.FC = () => {
   const handleTestComplete = async (stats: { wpm: number, accuracy: number, timeLeft: number }) => {
     if (!roomData || !currentUser) return
 
+    console.log('🏁 handleTestComplete called with stats:', stats)
+    console.log('🏁 Current user:', currentUser.uid)
+    console.log('🏁 Room data:', roomData)
+
     try {
       const roomRef = ref(rtdb, `rooms/${roomData.roomId}`)
+      console.log('🔄 Attempting to update Firebase with path:', `players/${currentUser.uid}`)
       await update(roomRef, {
         [`players/${currentUser.uid}/wpm`]: stats.wpm,
         [`players/${currentUser.uid}/accuracy`]: stats.accuracy,
         [`players/${currentUser.uid}/completed`]: true
       })
 
-      // Check if all players completed
-      const allCompleted = Object.values(roomData.players).every(p => p.completed)
+      console.log('✅ Successfully updated player stats in Firebase')
+
+      // Check if all active players completed (excluding disconnected players)
+      const activePlayers = Object.values(roomData.players).filter((p: any) => !p.disconnected)
+      const allCompleted = activePlayers.every(p => p.completed)
+      console.log('🎯 All completed check:', { activePlayers: activePlayers.length, allCompleted })
+
       if (allCompleted) {
-        // Determine winner
-        const players = Object.values(roomData.players)
-        const winner = players.reduce((prev, current) => (prev.wpm || 0) > (current.wpm || 0) ? prev : current)
+        // Determine winner from active players
+        const winner = activePlayers.reduce((prev, current) => (prev.wpm || 0) > (current.wpm || 0) ? prev : current)
         await update(roomRef, { status: 'finished', winner: winner.uid })
+        console.log('🏆 Game finished, winner:', winner.uid)
       }
     } catch (error) {
-      console.error('Error updating test results:', error)
+      console.error('❌ Error updating test results:', error)
     }
   }
 
@@ -212,17 +239,26 @@ const MultiplayerRoom: React.FC = () => {
 
     try {
       const roomRef = ref(rtdb, `rooms/${roomData.roomId}`)
-      await remove(child(roomRef, `players/${currentUser.uid}`))
 
-      // If no players left, delete room
-      const remainingPlayers = Object.keys(roomData.players).filter(uid => uid !== currentUser.uid)
-      if (remainingPlayers.length === 0) {
+      // Instead of deleting the player, mark them as disconnected
+      // This works with the current Firebase rules since we can update our own player data
+      await update(roomRef, {
+        [`players/${currentUser.uid}/ready`]: false,
+        [`players/${currentUser.uid}/disconnected`]: true,
+        [`players/${currentUser.uid}/disconnectedAt`]: Date.now()
+      })
+
+      // If no active players left, delete room
+      const updatedPlayers = { ...roomData.players }
+      delete updatedPlayers[currentUser.uid]
+      const remainingActivePlayers = Object.values(updatedPlayers).filter((p: any) => !p.disconnected)
+
+      if (remainingActivePlayers.length === 0) {
         await remove(roomRef)
       }
 
       setRoomData(null)
       setRoomCode('')
-      setIsHost(false)
       setIsReady(false)
       off(roomRef)
     } catch (error) {
@@ -294,7 +330,7 @@ const MultiplayerRoom: React.FC = () => {
                   >
                     <Zap className="w-20 h-20 text-yellow-400 mx-auto mb-4 drop-shadow-lg" />
                   </motion.div>
-                  <p className="text-xl font-semibold text-slate-300 mb-2">Ready to type?</p>
+                  <div className="text-xl font-semibold text-slate-300 mb-2">Ready to type?</div>
                   <div className="flex justify-center gap-2">
                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -384,10 +420,18 @@ const MultiplayerRoom: React.FC = () => {
     )
   }
 
-  const players = Object.values(roomData.players)
+  const players = Object.values(roomData.players).filter(p => !p.disconnected)
   const allReady = players.every(p => p.ready) && players.length >= 2
+  console.log('🎯 Ready state check:', {
+    totalPlayers: Object.keys(roomData.players).length,
+    activePlayers: players.length,
+    allReady,
+    readyStates: players.map(p => ({ name: p.name, ready: p.ready }))
+  })
+
   const isGameActive = roomData.status === 'active'
   const isFinished = roomData.status === 'finished'
+  const isHost = currentUser && roomData.players[currentUser.uid] ? true : false
 
   return (
     <motion.div
